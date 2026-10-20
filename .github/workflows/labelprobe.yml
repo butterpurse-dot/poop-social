@@ -1,9 +1,0 @@
-name: LabelProbe
-on:
-  push:
-    branches: [main]
-jobs:
-  mac:
-    runs-on: macos-26
-    steps:
-      - run: echo "macos-26 runner is available"
