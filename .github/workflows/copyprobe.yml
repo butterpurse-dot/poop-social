@@ -1,0 +1,167 @@
+name: CopyProbe
+
+# Why this workflow exists
+# ------------------------
+# The project is developed on an Intel iMac capped at Xcode 15.2. Since April
+# 2026, App Store Connect requires uploads to be built with Xcode 26 or later,
+# so the *local* Mac can build and run the app but cannot produce a shippable
+# binary. This workflow does the shippable build on GitHub's macOS runners,
+# which ship Xcode 26.
+#
+# Note the SDK requirement is about the toolchain, NOT the supported OS range.
+# The app still targets iOS 17, so people on older, un-updated iPhones are
+# unaffected. Deployment target and build SDK are separate settings.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    name: Build & test (Xcode 26)
+    # macos-26 is arm64 and ships Xcode 26.x with the iOS 26 SDK, which is
+    # what App Store Connect accepts. macos-latest may still point at an
+    # older image, so pin explicitly rather than trust the alias.
+    runs-on: macos-26
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          xcrun --sdk iphonesimulator --show-sdk-version
+          echo "--- available devices ---"
+          xcrun simctl list devices available | head -30
+
+      - name: Pick a simulator
+        id: sim
+        run: |
+          # Choose the newest available iPhone at runtime instead of hardcoding
+          # a model that may not exist on a future runner image.
+          #
+          # The Python is written to a file rather than passed as `python3 -c
+          # "..."`: the inline form needs quoting that survives a YAML block,
+          # a shell string, and Python's own string literals at once, which is
+          # three levels of escaping and is exactly what broke this workflow
+          # before. A file has none of that.
+          cat > pick_sim.py <<'PY'
+          import json, sys
+          devices = json.load(sys.stdin)["devices"]
+          candidates = []
+          for runtime, devs in devices.items():
+              if "iOS" not in runtime:
+                  continue
+              for dev in devs:
+                  if dev.get("isAvailable") and "iPhone" in dev["name"]:
+                      candidates.append((runtime, dev["name"], dev["udid"]))
+          if not candidates:
+              sys.exit("no iPhone simulator found")
+          candidates.sort()
+          print(candidates[-1][2])
+          PY
+
+          UDID=$(xcrun simctl list devices available -j | python3 pick_sim.py)
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+          echo "Using simulator: $UDID"
+
+      - name: Build
+        run: |
+          # `set -o pipefail` so a build failure inside the pipe still fails the
+          # step, and an explicit fallback only for the case where the pretty
+          # printer is genuinely missing.
+          #
+          # The earlier form (`... | xcbeautify || xcodebuild ...`) was wrong in
+          # two ways: a *build* failure looked identical to a missing
+          # `xcbeautify`, so it silently re-ran the build and reported the
+          # second result; and the retry ran without pipefail. Checking for the
+          # tool up front separates those cases cleanly.
+          set -o pipefail
+
+          if command -v xcbeautify >/dev/null 2>&1; then
+            xcodebuild build \
+              -project PoopSocial.xcodeproj \
+              -scheme PoopSocial \
+              -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
+              -derivedDataPath build \
+              | xcbeautify
+          else
+            xcodebuild build \
+              -project PoopSocial.xcodeproj \
+              -scheme PoopSocial \
+              -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
+              -derivedDataPath build
+          fi
+
+      - name: Test
+        run: |
+          # -parallel-testing-enabled NO is deliberate: the suites are not
+          # parallel-safe (they drive a shared simulator UI), and cloned
+          # devices have been unreliable. See README.
+          xcodebuild test \
+            -project PoopSocial.xcodeproj \
+            -scheme PoopSocial \
+            -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
+            -derivedDataPath build \
+            -parallel-testing-enabled NO
+
+  # Archive + upload happen only on a tag, and only once the Apple Developer
+  # account and App Store Connect API key are configured as repository secrets.
+  # Kept as a separate job so a missing secret can never fail normal CI.
+  archive:
+    name: Archive (Xcode 26)
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build-and-test
+    runs-on: macos-26
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Archive
+        run: |
+          xcodebuild archive \
+            -project PoopSocial.xcodeproj \
+            -scheme PoopSocial \
+            -destination "generic/platform=iOS" \
+            -archivePath build/PoopSocial.xcarchive \
+            -allowProvisioningUpdates
+
+      - name: Export .ipa
+        run: |
+          cat > ExportOptions.plist <<'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store-connect</string>
+          </dict>
+          </plist>
+          PLIST
+          xcodebuild -exportArchive \
+            -archivePath build/PoopSocial.xcarchive \
+            -exportPath build/export \
+            -exportOptionsPlist ExportOptions.plist \
+            -allowProvisioningUpdates
+
+      - name: Upload to App Store Connect
+        # Needs three repo secrets: ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8
+        # (the .p8 contents). Skipped with a clear message when absent, so
+        # the job is harmless before the Apple Developer account exists.
+        if: ${{ secrets.ASC_KEY_ID != '' }}
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          KEY_PATH="$RUNNER_TEMP/asc_key.p8"
+          printf '%s' "$ASC_KEY_P8" > "$KEY_PATH"
+          xcrun altool --upload-app \
+            --type ios \
+            --file build/export/PoopSocial.ipa \
+            --apiKey "$ASC_KEY_ID" \
+            --apiIssuer "$ASC_ISSUER_ID"
