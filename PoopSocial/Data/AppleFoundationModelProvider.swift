@@ -17,41 +17,58 @@ import Foundation
 //
 // ## API notes (verified against Apple's documentation, not guessed)
 //
-//   * The on-device model is `SystemLanguageModel.default` — there is a
-//     `default` accessor, and `SystemLanguageModel()` is not the idiomatic form.
-//   * Availability is `model.availability`, an enum with `.available` and
-//     `.unavailable(reason)`. `isAvailable` is the boolean convenience.
-//   * A session is `LanguageModelSession(model:instructions:)`, where
-//     `instructions` is an `Instructions` value. The trailing-closure form
-//     `LanguageModelSession(model:model) { "..." }` is equivalent.
-//   * `respond(to:)` returns `Response<String>`; the text is `.content`.
-//   * The documented error type is `LanguageModelSession.GenerationError`.
-//     Apple deprecates it in the 27 SDK in favour of `LanguageModelError` /
-//     `SystemLanguageModel.Error` / `LanguageModelSession.Error`, so this code
-//     catches generically and does not depend on the case names.
-//   * Private Cloud Compute is `PrivateCloudComputeLanguageModel`, available
-//     from **iOS 27**, and needs the network plus a per-person daily allowance.
+//   * `SystemLanguageModel.default` is the on-device model. `SystemLanguageModel()`
+//     also exists, but `default` is the documented accessor for the general model.
+//   * Availability is `model.availability` (an enum with `.available` /
+//     `.unavailable`, the latter carrying a reason) or the `isAvailable`
+//     convenience. Both are used below.
+//   * A session is `LanguageModelSession(model:instructions:)`, where a trailing
+//     closure supplies `Instructions`. `respond(to:)` returns `Response<String>`
+//     and the text is `.content`.
+//   * **Private Cloud Compute is `PrivateCloudComputeLanguageModel`, available
+//     from iOS 27.0**, and it needs the network plus the managed PCC entitlement.
 //     It is an enhanced path, never the floor.
 //
-// ## Why this file is guarded
+// ## The availability trap this file exists to get right
 //
-// The framework requires the iOS 26 SDK. This project is developed on an Intel
-// iMac capped at Xcode 15.2 / iOS 17, so without the `#if` the whole app would
-// stop compiling on the developer's own machine. The guard means:
+// Every one of these symbols is annotated `@available(iOS 26.0, *)` or `27.0`.
+// `#if canImport(FoundationModels)` answers "does this *module* exist on this
+// toolchain?" — which is `true` on an Xcode 26 build. It does **not** answer
+// "may I call this API given my deployment target", and this app targets iOS 17.
 //
-//   * Xcode 15.2 → the type still exists, reports `isAvailable == false`, and
-//     the router skips it. Nothing breaks, nothing dangles.
-//   * Xcode 26/27 → it compiles for real and is used automatically, in order,
-//     ahead of the cloud-key provider.
+// That distinction produced a real CI failure:
 //
-// One codebase, honest on both toolchains, no maintenance branch.
+//     error: 'LanguageModelSession' is only available in iOS 26.0 or newer
+//     error: 'respond(to:options:)' is only available in iOS 26.0 or newer
+//     error: cannot find 'PrivateCloudComputeLanguageModel' in scope
+//
+// The last one is the same mistake wearing a different hat: the type is iOS 27,
+// so on a build that only knows about an earlier availability context it is not
+// merely unusable, it is absent.
+//
+// The lesson is that a `guard #available(...) else { return }` does **not**
+// extend availability to the rest of a function — especially not to a
+// declaration with an explicit type annotation. The compiler needs the gated
+// code in a scope that is *annotated* `@available`. Hence the shape below:
+// each iOS-version-specific call lives in its own tiny `@available` function,
+// and the public entry point is a plain `if #available` dispatch.
+//
+// ## Why the whole file is `#if`-guarded
+//
+// On Xcode 15.2 (all this hardware-capped Intel iMac can run) the framework does
+// not exist at all, so the module check is exactly the right guard there:
+// the provider compiles to something that reports `isAvailable == false` and the
+// router skips it. On Xcode 26/27 the module check passes, the `@available`
+// dispatch below handles the deployment-target gap, and the providers light up
+// automatically. One codebase, honest on both toolchains, no maintenance branch.
 
 /// Provider backed by Apple's on-device model, or Private Cloud Compute.
 ///
 /// `isAvailable` is the important part: it reports `false` on anything that
-/// cannot run the model *right now* — older SDK, ineligible hardware, Apple
-/// Intelligence switched off, or the model still downloading — so the router
-/// falls through to the next provider without special-casing any of it.
+/// cannot run the model *right now* — older OS, ineligible hardware, Apple
+/// Intelligence switched off, missing PCC entitlement, or the model still
+/// downloading — so the router falls through to the next provider without
+/// special-casing any of it.
 struct AppleFoundationModelProvider: LLMProvider {
 
     /// `true` for the Private Cloud Compute model, `false` for on-device.
@@ -63,15 +80,7 @@ struct AppleFoundationModelProvider: LLMProvider {
 
     var isAvailable: Bool {
         #if canImport(FoundationModels)
-        if usePrivateCloud {
-            // PCC is iOS 27+ and needs a network, so it can vanish at any
-            // moment. Availability is checked at call time, never cached.
-            guard #available(iOS 27.0, *) else { return false }
-            return AppleFM.availability(of: .privateCloud) == .available
-        } else {
-            guard #available(iOS 26.0, *) else { return false }
-            return AppleFM.availability(of: .onDevice) == .available
-        }
+        return AppleFM.isAvailable(usePrivateCloud ? .privateCloud : .onDevice)
         #else
         // Framework absent (older SDK): this provider simply does not exist.
         return false
@@ -107,43 +116,53 @@ enum AppleFM {
         case privateCloud
     }
 
-    /// What we know about the model, flattened into cases the router cares about
-    /// rather than the framework's richer enum. `.available` is the only value
-    /// that means "go"; everything else means "move on".
-    enum Availability {
-        case available
-        case unavailable
-    }
+    // MARK: - Availability
 
     /// Is a usable model present right now?
     ///
     /// Deliberately conservative. Apple Intelligence can be *off* (user
-    /// setting), *unsupported* (older hardware), *disabled by a guardian/region
-    /// rule*, or *still downloading*. Every one of those must report unavailable
-    /// so the router moves on rather than hanging on a request that can never
-    /// answer.
-    static func availability(of kind: Kind) -> Availability {
+    /// setting), *unsupported* (older hardware), *disabled by a region or
+    /// guardian rule*, *still downloading*, or the PCC entitlement can be
+    /// missing. Every one of those must report unavailable so the router moves
+    /// on rather than hanging on a request that can never answer.
+    ///
+    /// The `if #available` dispatch is at this level rather than inside the
+    /// gated helpers, because calling an `@available(iOS 26, *)` function is
+    /// itself what requires the check.
+    static func isAvailable(_ kind: Kind) -> Bool {
         switch kind {
         case .onDevice:
-            guard #available(iOS 26.0, *) else { return .unavailable }
-            // `SystemLanguageModel.default` is the documented accessor.
-            switch SystemLanguageModel.default.availability {
-            case .available:
-                return .available
-            case .unavailable:
-                return .unavailable
+            if #available(iOS 26.0, *) {
+                return onDeviceIsAvailable()
             }
+            return false
 
         case .privateCloud:
-            guard #available(iOS 27.0, *) else { return .unavailable }
-            switch PrivateCloudComputeLanguageModel().availability {
-            case .available:
-                return .available
-            case .unavailable:
-                return .unavailable
+            if #available(iOS 27.0, *) {
+                return privateCloudIsAvailable()
             }
+            return false
         }
     }
+
+    /// On-device availability. Only ever called from an iOS 26+ context.
+    ///
+    /// Annotated `@available` so the compiler can prove the framework calls
+    /// inside it are legal, which a `guard` at the call site could not do.
+    @available(iOS 26.0, *)
+    private static func onDeviceIsAvailable() -> Bool {
+        // `isAvailable` is the documented convenience over the richer
+        // `availability` enum, and it is all the router needs: one boolean.
+        return SystemLanguageModel.default.isAvailable
+    }
+
+    /// PCC availability. Only ever called from an iOS 27+ context.
+    @available(iOS 27.0, *)
+    private static func privateCloudIsAvailable() -> Bool {
+        return PrivateCloudComputeLanguageModel().isAvailable
+    }
+
+    // MARK: - Generation
 
     /// Generate text with the chosen Apple model.
     ///
@@ -157,41 +176,71 @@ enum AppleFM {
     ) async throws -> String {
         let kind: Kind = usePrivateCloud ? .privateCloud : .onDevice
 
-        guard availability(of: kind) == .available else {
-            throw LLMError.noProviderAvailable
-        }
+        guard isAvailable(kind) else { throw LLMError.noProviderAvailable }
 
-        let session: LanguageModelSession
         switch kind {
         case .onDevice:
-            guard #available(iOS 26.0, *) else { throw LLMError.noProviderAvailable }
-            session = LanguageModelSession(model: SystemLanguageModel.default) {
-                Instructions(systemPrompt)
+            // Belt and braces: `isAvailable` already proved iOS 26+, but the
+            // compiler needs the check in the *same* scope as the call.
+            if #available(iOS 26.0, *) {
+                return try await completeOnDevice(systemPrompt: systemPrompt, input: input)
             }
+            throw LLMError.noProviderAvailable
 
         case .privateCloud:
-            guard #available(iOS 27.0, *) else { throw LLMError.noProviderAvailable }
-            session = LanguageModelSession(model: PrivateCloudComputeLanguageModel()) {
-                Instructions(systemPrompt)
+            if #available(iOS 27.0, *) {
+                return try await completeOnPrivateCloud(systemPrompt: systemPrompt, input: input)
             }
+            throw LLMError.noProviderAvailable
         }
+    }
 
-        let text: String
+    /// On-device generation. iOS 26+ only.
+    @available(iOS 26.0, *)
+    private static func completeOnDevice(
+        systemPrompt: String,
+        input: String
+    ) async throws -> String {
+        let session = LanguageModelSession(model: SystemLanguageModel.default) {
+            Instructions(systemPrompt)
+        }
+        return try await text(from: session, input: input)
+    }
+
+    /// Private Cloud Compute generation. iOS 27+ only.
+    @available(iOS 27.0, *)
+    private static func completeOnPrivateCloud(
+        systemPrompt: String,
+        input: String
+    ) async throws -> String {
+        let session = LanguageModelSession(model: PrivateCloudComputeLanguageModel()) {
+            Instructions(systemPrompt)
+        }
+        return try await text(from: session, input: input)
+    }
+
+    /// Send the prompt and extract the text, with the error handling and
+    /// output cleaning shared by both models.
+    ///
+    /// Note the generic `catch`. Apple renames these error types in the 27 SDK
+    /// (`GenerationError` → `LanguageModelError` / `SystemLanguageModel.Error` /
+    /// `LanguageModelSession.Error`), and Apple's own deprecation note warns that
+    /// a stale `catch GenerationError.exceededContextWindowSize` silently stops
+    /// matching after a rebuild. Depending only on "it threw" keeps this correct
+    /// across both SDKs; the router treats every throw the same way.
+    @available(iOS 26.0, *)
+    private static func text(
+        from session: LanguageModelSession,
+        input: String
+    ) async throws -> String {
+        let response: String
         do {
-            let response = try await session.respond(to: input)
-            text = response.content
+            response = try await session.respond(to: input).content
         } catch {
-            // Catching generically on purpose. Apple renames these error types
-            // in the 27 SDK (`GenerationError` → `LanguageModelError` /
-            // `SystemLanguageModel.Error` / `LanguageModelSession.Error`), and
-            // Apple's own deprecation note warns that a stale `catch
-            // GenerationError.exceededContextWindowSize` silently stops matching
-            // after a rebuild. Depending only on "it threw" keeps this correct
-            // across both SDKs; the router treats every throw the same way.
             throw LLMError.transport(String(describing: error))
         }
 
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = response.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { throw LLMError.emptyResponse }
         return trimmed
     }
