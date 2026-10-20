@@ -41,9 +41,10 @@
 		AA000000000000000000004C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000004B /* Assets.xcassets */; };
 		AA000000000000000000005D /* ContentModeratorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000005B /* ContentModeratorTests.swift */; };
 		AA000000000000000000005E /* ContentModerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000005C /* ContentModerator.swift */; };
-		AA000000000000000000006D /* LaunchProbeUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000006A /* LaunchProbeUITests.swift */; };
-		AA000000000000000000006E /* PoopSocialInteractionUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000006B /* PoopSocialInteractionUITests.swift */; };
-		AA000000000000000000006F /* PoopSocialUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000006C /* PoopSocialUITests.swift */; };
+		AA000000000000000000006E /* LaunchProbeUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000006A /* LaunchProbeUITests.swift */; };
+		AA000000000000000000006F /* PoopSocialInteractionUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000006B /* PoopSocialInteractionUITests.swift */; };
+		AA0000000000000000000070 /* PoopSocialUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000006C /* PoopSocialUITests.swift */; };
+		AA0000000000000000000071 /* VisualWalkUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000006D /* VisualWalkUITests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -86,7 +87,8 @@
 		AA000000000000000000006A /* LaunchProbeUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "LaunchProbeUITests.swift"; path = "PoopSocialUITests/LaunchProbeUITests.swift"; sourceTree = SOURCE_ROOT; };
 		AA000000000000000000006B /* PoopSocialInteractionUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "PoopSocialInteractionUITests.swift"; path = "PoopSocialUITests/PoopSocialInteractionUITests.swift"; sourceTree = SOURCE_ROOT; };
 		AA000000000000000000006C /* PoopSocialUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "PoopSocialUITests.swift"; path = "PoopSocialUITests/PoopSocialUITests.swift"; sourceTree = SOURCE_ROOT; };
-		AA0000000000000000000070 /* PoopSocialUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PoopSocialUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA000000000000000000006D /* VisualWalkUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "VisualWalkUITests.swift"; path = "PoopSocialUITests/VisualWalkUITests.swift"; sourceTree = SOURCE_ROOT; };
+		AA0000000000000000000072 /* PoopSocialUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PoopSocialUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -104,7 +106,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		AA0000000000000000000074 /* Frameworks */ = {
+		AA0000000000000000000076 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -114,15 +116,15 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		AA0000000000000000000079 /* PBXTargetDependency */ = {
+		AA000000000000000000007B /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = AA0000000000000000000053 /* PoopSocial */;
-			targetProxy = AA000000000000000000007A /* PBXContainerItemProxy */;
+			targetProxy = AA000000000000000000007C /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
 /* Begin PBXContainerItemProxy section */
-		AA000000000000000000007A /* PBXContainerItemProxy */ = {
+		AA000000000000000000007C /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = AA0000000000000000000054 /* Project object */;
 			proxyType = 1;
@@ -137,7 +139,7 @@
 			children = (
 				AA0000000000000000000001 /* PoopSocial */,
 				AA000000000000000000004F /* Products */,
-				AA0000000000000000000071 /* PoopSocialUITests */,
+				AA0000000000000000000073 /* PoopSocialUITests */,
 				AA0000000000000000000060 /* PoopSocialTests */,
 			);
 			sourceTree = "<group>";
@@ -146,7 +148,7 @@
 			isa = PBXGroup;
 			children = (
 				AA000000000000000000004D /* PoopSocial.app */,
-				AA0000000000000000000070 /* PoopSocialUITests.xctest */,
+				AA0000000000000000000072 /* PoopSocialUITests.xctest */,
 				AA000000000000000000005F /* PoopSocialTests.xctest */,
 			);
 			name = Products;
@@ -287,12 +289,13 @@
 			);
 			sourceTree = "<group>";
 		};
-		AA0000000000000000000071 /* PoopSocialUITests */ = {
+		AA0000000000000000000073 /* PoopSocialUITests */ = {
 			isa = PBXGroup;
 			children = (
 				AA000000000000000000006A /* LaunchProbeUITests.swift */,
 				AA000000000000000000006B /* PoopSocialInteractionUITests.swift */,
 				AA000000000000000000006C /* PoopSocialUITests.swift */,
+				AA000000000000000000006D /* VisualWalkUITests.swift */,
 			);
 			sourceTree = "<group>";
 		};
@@ -333,22 +336,22 @@
 			productReference = AA000000000000000000005F /* PoopSocialTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		AA0000000000000000000072 /* PoopSocialUITests */ = {
+		AA0000000000000000000074 /* PoopSocialUITests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = AA0000000000000000000076 /* Build configuration list for PBXNativeTarget "PoopSocialUITests" */;
+			buildConfigurationList = AA0000000000000000000078 /* Build configuration list for PBXNativeTarget "PoopSocialUITests" */;
 			buildPhases = (
-				AA0000000000000000000073 /* Sources */,
-				AA0000000000000000000074 /* Frameworks */,
-				AA0000000000000000000075 /* Resources */,
+				AA0000000000000000000075 /* Sources */,
+				AA0000000000000000000076 /* Frameworks */,
+				AA0000000000000000000077 /* Resources */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				AA0000000000000000000079 /* PBXTargetDependency */,
+				AA000000000000000000007B /* PBXTargetDependency */,
 			);
 			name = PoopSocialUITests;
 			productName = PoopSocialUITests;
-			productReference = AA0000000000000000000070 /* PoopSocialUITests.xctest */;
+			productReference = AA0000000000000000000072 /* PoopSocialUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
 /* End PBXNativeTarget section */
@@ -364,7 +367,7 @@
 					AA0000000000000000000053 = {
 						CreatedOnToolsVersion = 15.2;
 					};
-					AA0000000000000000000072 = {
+					AA0000000000000000000074 = {
 						CreatedOnToolsVersion = 15.2;
 						TestTargetID = AA0000000000000000000053;
 					};
@@ -387,7 +390,7 @@
 			projectRoot = "";
 			targets = (
 				AA0000000000000000000053 /* PoopSocial */,
-				AA0000000000000000000072 /* PoopSocialUITests */,
+				AA0000000000000000000074 /* PoopSocialUITests */,
 				AA0000000000000000000061 /* PoopSocialTests */,
 			);
 		};
@@ -409,7 +412,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		AA0000000000000000000075 /* Resources */ = {
+		AA0000000000000000000077 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -466,20 +469,21 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		AA0000000000000000000073 /* Sources */ = {
+		AA0000000000000000000075 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				AA000000000000000000006D /* LaunchProbeUITests.swift in Sources */,
-				AA000000000000000000006E /* PoopSocialInteractionUITests.swift in Sources */,
-				AA000000000000000000006F /* PoopSocialUITests.swift in Sources */,
+				AA000000000000000000006E /* LaunchProbeUITests.swift in Sources */,
+				AA000000000000000000006F /* PoopSocialInteractionUITests.swift in Sources */,
+				AA0000000000000000000070 /* PoopSocialUITests.swift in Sources */,
+				AA0000000000000000000071 /* VisualWalkUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		AA0000000000000000000077 /* Debug */ = {
+		AA0000000000000000000079 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
@@ -496,7 +500,7 @@
 			};
 			name = Debug;
 		};
-		AA0000000000000000000078 /* Release */ = {
+		AA000000000000000000007A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
@@ -750,11 +754,11 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		AA0000000000000000000076 /* Build configuration list for PBXNativeTarget "PoopSocialUITests" */ = {
+		AA0000000000000000000078 /* Build configuration list for PBXNativeTarget "PoopSocialUITests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				AA0000000000000000000077 /* Debug */,
-				AA0000000000000000000078 /* Release */,
+				AA0000000000000000000079 /* Debug */,
+				AA000000000000000000007A /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

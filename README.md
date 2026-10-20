@@ -289,9 +289,45 @@ Real bugs the toolchain caught, all fixed:
 
 - **Nobody has looked at the UI by eye.** Everything visual has been verified by
   decoding screenshots and measuring pixels and accessibility trees — which is
-  how the grey-glass and tab-bar-contrast defects above were found, so the method
-  does work. But colour *aesthetics* (does it look good?) cannot be measured.
-  Opening the project in Xcode remains the last unchecked item.
+  how the grey-glass, tab-bar-contrast and Reels-rail defects above were found,
+  so the method does work. Two independent vision-model reviews were also run
+  against the screenshots. They agreed with the pixel measurements on the Reels
+  collision, and were **wrong** on several other claims (a "clipped avatar" and
+  a "clipped heart icon" that the pixels disprove, plus a "CATRAZ ISLAND"
+  carrier string that is the simulator's own demo status bar and appears nowhere
+  in the source). Trust the measurement, and re-measure when two measurements
+  disagree. Colour *aesthetics* (does it look good?) still cannot be measured —
+  opening the project in Xcode remains the last unchecked item.
 - `Store` is local-only; the backend seam is designed but unexercised.
+
+### A stale-checked-in-project trap, and how to avoid it
+
+`project.pbxproj` is generated, so the copy in the repo can silently drift
+behind the sources. This actually happened: the committed file did **not**
+reference `PoopSocialUITests/VisualWalkUITests.swift` at all, while the working
+copy on the build machine did — so a green test run was exercising a file the
+repo did not contain. If you add, rename or delete a Swift file, **re-run both
+generators and commit the result**:
+
+```
+python3 gen_pbxproj.py .        # must run first
+python3 add_uitest_target.py .  # must run second
+```
+
+Running them twice in a row produces a byte-identical file (verified:
+`md5 = 401fc98341e7a7c4364d2f9acfc686fc`), so it is safe to do idempotently.
+A quick health check that every Swift file is wired in:
+
+```
+python3 - <<'PY'
+import os
+pbx = open('PoopSocial.xcodeproj/project.pbxproj').read()
+disk = [f for r,_,fs in os.walk('.') for f in fs
+        if f.endswith('.swift') and '.xcodeproj' not in r and '.git' not in r]
+missing = [f for f in disk if f not in pbx]
+print('swift on disk:', len(disk), '| missing from pbxproj:', missing or 'none')
+PY
+```
+
 
 
