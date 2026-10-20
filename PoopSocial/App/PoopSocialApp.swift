@@ -19,7 +19,8 @@ struct PoopSocialApp: App {
             Reaction.self,
             Repost.self,
             Bookmark.self,
-            Connection.self
+            Connection.self,
+            Invite.self
         ])
 
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)

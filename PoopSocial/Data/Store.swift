@@ -257,6 +257,84 @@ final class Store {
         link(with: other)?.closeness ?? .acquaintance
     }
 
+    // MARK: - Invites (add friends by number / email)
+
+    /// Create an invite from a **raw** phone number or email address.
+    ///
+    /// The raw value is hashed here and then goes out of scope — it is never
+    /// written to the graph. This is the intended entry point for the UI, so
+    /// that the only type-aware call site is this one method rather than every
+    /// view being trusted to hash correctly.
+    ///
+    /// Returns `nil` if the input is not a plausible number or address, or if an
+    /// invite for that contact already exists.
+    @discardableResult
+    func invite(raw contact: String) -> Invite? {
+        guard let (kind, hash) = ContactHasher.hash(raw: contact, salt: ContactHasher.salt()) else {
+            return nil
+        }
+        return invite(hash: hash, kind: kind)
+    }
+
+    /// Create an invite from an already-computed hash. Exposed separately so
+    /// callers that hold hashes (e.g. a future contacts-import that hashes a
+    /// whole address book in one pass) do not have to route raw values through.
+    @discardableResult
+    func invite(hash: String, kind: ContactKind) -> Invite? {
+        guard !hash.isEmpty else { return nil }
+        guard !allInvites().contains(where: { $0.contactHash == hash }) else { return nil }
+
+        let invite = Invite(contactHash: hash, kind: kind)
+        context.insert(invite)
+        save()
+        return invite
+    }
+
+    func allInvites() -> [Invite] {
+        (try? context.fetch(FetchDescriptor<Invite>())) ?? []
+    }
+
+    /// Pending invites, newest first — what the UI shows under "Waiting on".
+    func pendingInvites() -> [Invite] {
+        allInvites()
+            .filter { $0.state == .pending }
+            .sorted { $0.createdAt > $1.createdAt }
+    }
+
+    /// Is this raw contact already invited? Hashes internally, so the caller
+    /// never has to hold a hash to ask.
+    func hasInvited(raw contact: String) -> Bool {
+        guard let (_, hash) = ContactHasher.hash(raw: contact, salt: ContactHasher.salt()) else {
+            return false
+        }
+        return allInvites().contains { $0.contactHash == hash }
+    }
+
+    func cancel(_ invite: Invite) {
+        context.delete(invite)
+        save()
+    }
+
+    /// Claim a pending invite for `profile` and make the two of them linked.
+    ///
+    /// This is the "someone signed up with an address you invited" path. It
+    /// marks the invite claimed and creates the connection in one step so the
+    /// invite cannot end up claimed-but-unlinked.
+    func claim(_ invite: Invite, by profile: Profile) {
+        guard invite.state == .pending, let me = me(), profile.id != me.id else { return }
+        invite.claimedBy = profile
+        invite.state = .claimed
+
+        if let link = link(with: profile) {
+            link.state = .linked
+        } else {
+            let connection = Connection(from: me, to: profile, state: .linked, closeness: .friend)
+            context.insert(connection)
+        }
+        Haptics.success()
+        save()
+    }
+
     // MARK: - Bathrooms
 
     @discardableResult

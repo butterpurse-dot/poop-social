@@ -261,6 +261,9 @@ final class Profile {
     @Relationship(deleteRule: .nullify, inverse: \Connection.to)
     var incomingLinks: [Connection]
 
+    @Relationship(deleteRule: .nullify, inverse: \Invite.claimedBy)
+    var claimedInvites: [Invite]
+
     init(
         id: UUID = UUID(),
         displayName: String,
@@ -286,9 +289,9 @@ final class Profile {
         self.bookmarks = []
         self.outgoingLinks = []
         self.incomingLinks = []
+        self.claimedInvites = []
     }
 }
-
 // MARK: - Bathroom
 
 @Model
@@ -562,6 +565,64 @@ final class Connection {
     func other(than me: Profile?) -> Profile? {
         guard let me else { return from ?? to }
         return from?.id == me.id ? to : from
+    }
+}
+
+/// An outstanding "add me by number or email" invite.
+///
+/// **Privacy contract:** this stores `contactHash` — a salted SHA-256 digest —
+/// and never the raw phone number or email address it came from. There is no
+/// field to put the raw value in, deliberately: the schema makes the leak
+/// impossible rather than relying on discipline. See `ContactHasher` for why,
+/// and `ContactHasherTests` for the proof.
+///
+/// `kind` is kept only so the UI can say "waiting on a number" vs "waiting on an
+/// email"; it is not identifying on its own.
+@Model
+final class Invite {
+    @Attribute(.unique) var id: UUID
+    /// Salted, one-way hash of the normalised phone number or email. NOT the raw value.
+    @Attribute(.unique) var contactHash: String
+    var kind: ContactKind
+    var stateRaw: String
+    var createdAt: Date
+
+    /// Set when the invite is claimed, linking it to the profile that accepted.
+    var claimedBy: Profile?
+
+    init(
+        id: UUID = UUID(),
+        contactHash: String,
+        kind: ContactKind,
+        state: InviteState = .pending,
+        createdAt: Date = .now,
+        claimedBy: Profile? = nil
+    ) {
+        self.id = id
+        self.contactHash = contactHash
+        self.kind = kind
+        self.stateRaw = state.rawValue
+        self.createdAt = createdAt
+        self.claimedBy = claimedBy
+    }
+
+    var state: InviteState {
+        get { InviteState(rawValue: stateRaw) ?? .pending }
+        set { stateRaw = newValue.rawValue }
+    }
+}
+
+enum InviteState: String, Codable {
+    case pending
+    case claimed
+    case expired
+
+    var label: String {
+        switch self {
+        case .pending: return "Waiting"
+        case .claimed: return "Joined"
+        case .expired: return "Expired"
+        }
     }
 }
 

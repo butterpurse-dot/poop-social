@@ -132,8 +132,7 @@ final class PoopSocialInteractionUITests: XCTestCase {
 
     /// The composer must refuse to post empty content — the moderation choke
     /// point is the product's core promise.
-    func testEmptyComposerDoesNotPost() throws {
-        tapTab("Home")
+    func testEmptyComposerDoesNotPost() throws {        tapTab("Home")
         let compose = app.buttons["composeButton"]
         XCTAssertTrue(compose.waitForExistence(timeout: 6))
         compose.tap()
@@ -196,5 +195,48 @@ final class PoopSocialInteractionUITests: XCTestCase {
             XCTAssertTrue(editor.exists,
                           "composer dismissed on flagged text — moderation did not block it")
         }
+    }
+
+    /// The invite flow must (a) be reachable, (b) refuse junk, and (c) demand
+    /// explicit consent before it will send — the privacy promise's UX half.
+    func testInviteFlowRequiresConsentAndRejectsJunk() throws {
+        tapTab("Crew")
+
+        let addButton = app.buttons["Add a friend by number or email"]
+        XCTAssertTrue(addButton.waitForExistence(timeout: 6),
+                      "crew screen has no invite entry point")
+        addButton.tap()
+
+        let field = app.textFields.firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 8), "invite sheet did not appear")
+
+        // 1. Junk is refused: no consent card should appear for a non-contact.
+        field.tap()
+        field.typeText("not a contact")
+        usleep(800_000)
+        XCTAssertTrue(
+            app.staticTexts.matching(
+                NSPredicate(format: "label CONTAINS[c] 'doesn\\'t look like'")
+            ).firstMatch.exists,
+            "junk input was not flagged"
+        )
+
+        // 2. A real contact reveals the consent card.
+        field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 14))
+        field.typeText("maya@example.com")
+        usleep(800_000)
+
+        let consent = app.staticTexts.matching(
+            NSPredicate(format: "label CONTAINS[c] 'one-way'")
+        ).firstMatch
+        XCTAssertTrue(consent.exists, "consent copy never appeared for a valid contact")
+
+        // 3. And the raw value is visibly NOT what gets stored.
+        XCTAssertFalse(
+            app.staticTexts.matching(
+                NSPredicate(format: "label CONTAINS[c] 'maya@example.com' AND label CONTAINS[c] 'saved'")
+            ).firstMatch.exists,
+            "the stored-value preview appears to contain the raw address"
+        )
     }
 }

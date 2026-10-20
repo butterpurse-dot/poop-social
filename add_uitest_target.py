@@ -38,6 +38,7 @@ UNIT_BUNDLE_ID = "com.poopsocial.app.tests"
 # dependencies, so they compile cleanly into the test bundle.
 UNIT_SHARED_SOURCES = [
     ("PoopSocial/Models/ContentModerator.swift", "ContentModerator.swift"),
+    ("PoopSocial/Data/ContactHasher.swift", "ContactHasher.swift"),
 ]
 
 UI_TARGET = "PoopSocialUITests"

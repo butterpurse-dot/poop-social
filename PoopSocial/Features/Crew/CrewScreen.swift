@@ -26,6 +26,7 @@ struct CrewScreen: View {
     @State private var scope: CrewScope = .crew
     @State private var search = ""
     @State private var personRoute: PersonRoute?
+    @State private var showInvite = false
     @Namespace private var scopeNS
 
     private var me: Profile? { profiles.first { $0.isMe } }
@@ -47,6 +48,13 @@ struct CrewScreen: View {
             $0.to?.id == me.id && $0.state == .incoming
         }
         .sorted { $0.createdAt > $1.createdAt }
+    }
+
+    /// Invites sent from this device that nobody has claimed yet. Shown so an
+    /// invite is not a fire-and-forget — the user can see it is still waiting,
+    /// and cancel it.
+    private var pendingInvites: [Invite] {
+        store.pendingInvites()
     }
 
     private var discover: [Profile] {
@@ -90,6 +98,7 @@ struct CrewScreen: View {
                         searchBar
                         scopePicker
                         if scope == .crew && !pending.isEmpty { requestsSection }
+                        if scope == .discover && !pendingInvites.isEmpty { invitesSection }
                         mainSection
                     }
                     .padding(.horizontal, Theme.gutter)
@@ -101,6 +110,12 @@ struct CrewScreen: View {
             .toolbar(.hidden, for: .navigationBar)
             .sheet(item: $personRoute) { route in
                 PersonSheet(profile: route.profile)
+                    .presentationDetents([.large])
+                    .presentationDragIndicator(.visible)
+                    .presentationCornerRadius(30)
+            }
+            .sheet(isPresented: $showInvite) {
+                InviteSheet()
                     .presentationDetents([.large])
                     .presentationDragIndicator(.visible)
                     .presentationCornerRadius(30)
@@ -123,11 +138,12 @@ struct CrewScreen: View {
             Spacer()
             Button {
                 Haptics.tick()
-                scope = .discover
+                showInvite = true
             } label: {
                 IconBubble(icon: "person.badge.plus", tint: Theme.mint, size: 38, filled: true)
             }
             .buttonStyle(PressableStyle())
+            .accessibilityLabel("Add a friend by number or email")
         }
     }
 
@@ -268,6 +284,57 @@ struct CrewScreen: View {
         }
     }
 
+    // MARK: Invites sent
+
+    /// Deliberately shows the *kind* and a truncated hash — never the contact
+    /// itself, because the app genuinely does not have it.
+    private var invitesSection: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            HStack(spacing: 6) {
+                Text("Waiting on")
+                    .font(.display(16, weight: .heavy))
+                    .foregroundStyle(Theme.ink)
+                Text("\(pendingInvites.count)")
+                    .font(.body(10, weight: .heavy))
+                    .foregroundStyle(Theme.night)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Capsule().fill(Theme.sky))
+                Spacer()
+            }
+
+            ForEach(pendingInvites, id: \.id) { invite in
+                HStack(spacing: 10) {
+                    IconBubble(icon: invite.kind.icon, tint: Theme.sky, size: 38, filled: true)
+
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("Invited by \(invite.kind.label)")
+                            .font(.body(13, weight: .bold))
+                            .foregroundStyle(Theme.ink)
+                        Text(String(invite.contactHash.prefix(16)) + "…")
+                            .font(.system(size: 10, design: .monospaced))
+                            .foregroundStyle(Theme.inkFaint)
+                    }
+
+                    Spacer()
+
+                    Button {
+                        store.cancel(invite)
+                        Haptics.warn()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(Theme.inkFaint)
+                            .frame(width: 30, height: 30)
+                            .background(Circle().fill(Color.white.opacity(0.07)))
+                    }
+                    .buttonStyle(PressableStyle(scale: 0.9))
+                }
+                .glassCard(tint: Theme.sky, padding: 11)
+            }
+        }
+    }
+
     // MARK: Main
 
     @ViewBuilder
@@ -317,8 +384,11 @@ struct CrewScreen: View {
                 EmptyPanel(
                     icon: "🫧",
                     title: "You've found everyone",
-                    message: "That's the whole neighbourhood. Invite a friend to Poop Social."
-                )
+                    message: "That's the whole neighbourhood. Invite a friend by number or email.",
+                    actionTitle: "Invite a friend"
+                ) {
+                    showInvite = true
+                }
                 .glassCard(padding: 4)
             } else {
                 VStack(alignment: .leading, spacing: 8) {
@@ -330,6 +400,27 @@ struct CrewScreen: View {
                     ForEach(filteredDiscover, id: \.id) { person in
                         personRow(person, tier: nil)
                     }
+
+                    Button {
+                        Haptics.tick()
+                        showInvite = true
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "person.badge.plus")
+                                .font(.system(size: 13, weight: .bold))
+                            Text("Invite by number or email")
+                                .font(.body(13, weight: .bold))
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundStyle(Theme.inkFaint)
+                        }
+                        .foregroundStyle(Theme.mint)
+                        .padding(13)
+                        .glassCard(tint: Theme.mint, padding: 0)
+                    }
+                    .buttonStyle(PressableStyle(scale: 0.99))
+                    .padding(.top, 6)
                 }
             }
         }

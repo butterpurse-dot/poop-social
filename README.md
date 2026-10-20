@@ -51,9 +51,10 @@ project with a working scheme immediately.
 
 | Suite | Kind | Covers |
 | --- | --- | --- |
-| `ContentModeratorTests` | unit (19) | the whole no-images / no-flagged-language choke point |
+| `ContentModeratorTests` | unit (15) | the whole no-images / no-flagged-language choke point |
+| `ContactHasherTests` | unit (13) | the invite privacy claims: one-way, salted, normalised, domain-separated |
 | `PoopSocialUITests` | UI (5) | launch, four tabs, composer, hygiene sheet, full navigation |
-| `PoopSocialInteractionUITests` | UI (7) | publishing a drop, refusing empty + flagged input, no image affordance, bathroom detail, crew sheet, rapid tab switching |
+| `PoopSocialInteractionUITests` | UI (8) | publishing a drop, refusing empty + flagged input, no image affordance, bathroom detail, crew sheet, invite consent, rapid tab switching |
 | `VisualWalkUITests` | UI (1) | walks all four tabs in order, asserting each one renders content |
 | `LaunchProbeUITests` | UI (1) | onboarding is visible on a first run |
 
@@ -128,7 +129,7 @@ accessibility tree confirms Crew and Me have **no** map. A speculative
 | --- | --- |
 | **Home** | Timeline (`For You` / `Following`), crew strip, daily hygiene PSA, trending thrones rail, threaded replies. |
 | **Find** | Map of bathrooms with search, amenity filters, ranked carousel, detail screen with scores, crew-visit row and reviews. |
-| **Crew** | Two connection tiers — **acquaintance** and **friend/bestie** — plus pending requests and a Discover list. |
+| **Crew** | Two connection tiers — **acquaintance** and **friend/bestie** — plus pending requests, an invite-by-number/email flow, and a Discover list. |
 | **Me** | Profile, stats, hygiene streak/XP/level, badges, saved posts, your drops. |
 
 Plus a global composer (drop / review), a hygiene playbook sheet, and a
@@ -161,6 +162,7 @@ PoopSocial/
 │   └── ContentModerator.swift  the no-images enforcement choke point
 ├── Data/
 │   ├── Store.swift             THE single write surface (backend seam)
+│   ├── ContactHasher.swift     salted, one-way hashing for invites
 │   ├── SeedData.swift          first-launch world
 │   ├── JokeBank.swift          ~60 original one-liners
 │   └── HygieneTips.swift       12 tips + deterministic tip-of-the-day
@@ -222,6 +224,46 @@ and a content-policy card on your own profile.
 
 All comedy in `JokeBank.swift` is **original writing** for this app — trailer
 voice, internet slang and group-chat banter, none of it lifted from films or TV.
+
+---
+
+## Adding friends by number or email — the privacy design
+
+Crew → **＋** opens `InviteSheet`. You type a phone number or an email address,
+and the app sends an invite. The interesting part is what it *doesn't* keep.
+
+**The rule: the raw contact is never stored, and there is nowhere to store it.**
+
+`ContactHasher` (in `Data/ContactHasher.swift`) turns the input into a
+**salted, one-way SHA-256 digest** and that digest is all that is written. The
+`Invite` model has a `contactHash` field and deliberately **no field for a number
+or an address** — the schema makes the leak impossible rather than trusting every
+call site to behave. Four properties, each pinned by a test in
+`PoopSocialTests/ContactHasherTests.swift`:
+
+| Property | Why it matters | Test |
+| --- | --- | --- |
+| One-way | A stored digest can't be turned back into a number | `testHashDoesNotContainTheRawNumber` |
+| Salted **per install** | Phone numbers are enumerable, so an unsalted hash is reversible by brute force. A random 32-byte per-install salt defeats precomputed tables | `testDifferentSaltProducesDifferentHash`, `testSaltIsRandomPerInstall` |
+| Normalised first | `+1 (415) 555-0100` and `14155550100` must match each other, or the feature is useless | `testPhoneFormattingIsNormalisedBeforeHashing` |
+| Domain-separated | A phone hash can never collide with an email hash of the same string | `testKindIsDomainSeparated` |
+
+Two more things the design does on purpose:
+
+- **Consent is an explicit step.** The sheet won't send until you tick "I
+  understand what happens next", and it shows the *actual digest* that will be
+  saved so the claim is verifiable rather than a promise.
+- **No address book is ever read.** There is no contacts permission, no
+  `CNContactStore`, and no bulk import — you type one contact, and nothing else
+  is touched. A future "import my contacts" feature would hash locally and send
+  only digests; this build doesn't have one.
+
+**The honest limitation:** matching is local-only, so two *devices* can only
+match if they agree on a hash. Doing this properly across users means a
+server-side private set intersection (or a shared salt held server-side). That's
+the correct next step if this ever gets a backend — `Store.invite(hash:kind:)`
+already exists as the seam for it, so callers that hold digests never have to
+route raw values through. What's here is the safest possible default until then.
 
 ---
 
