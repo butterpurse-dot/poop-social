@@ -178,6 +178,10 @@ private struct ReelCard: View {
     @State private var appeared = false
     @State private var burst = 0
 
+    /// Horizontal space reserved on the trailing edge so caption copy never
+    /// slides under the pinned reaction rail (rail inset 10pt + icon column).
+    static let railClearance: CGFloat = 78
+
     private var backdrop: LinearGradient {
         Theme.reelBackdrops[post.backdrop % Theme.reelBackdrops.count]
     }
@@ -218,7 +222,7 @@ private struct ReelCard: View {
                     .foregroundStyle(.white)
                     .shadow(color: .black.opacity(0.25), radius: 12, y: 4)
                     .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 20)
+                    .padding(.leading, 20)
                     .scaleEffect(appeared ? 1 : 0.92)
                     .opacity(appeared ? 1 : 0)
 
@@ -226,7 +230,7 @@ private struct ReelCard: View {
                     Text(post.body)
                         .font(.body(15))
                         .foregroundStyle(.white.opacity(0.86))
-                        .padding(.horizontal, 22)
+                        .padding(.leading, 22)
                         .fixedSize(horizontal: false, vertical: true)
                         .opacity(appeared ? 1 : 0)
                         .offset(y: appeared ? 0 : 10)
@@ -236,9 +240,13 @@ private struct ReelCard: View {
                 Spacer()
 
                 authorRow
-                    .padding(.horizontal, 18)
+                    .padding(.leading, 18)
                     .padding(.bottom, 26)
             }
+            // Keep the copy clear of the right-hand reaction rail so the two
+            // never collide. The rail is pinned to the trailing edge with a
+            // 10pt inset and is ~62pt wide, so reserve 78pt here.
+            .padding(.trailing, Self.railClearance)
 
             rightRail
                 .frame(maxHeight: .infinity, alignment: .center)

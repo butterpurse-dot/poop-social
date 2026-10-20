@@ -97,6 +97,17 @@ measuring them. Two real defects came out of that, both now fixed:
 | --- | --- | --- |
 | Glass cards rendered **neutral grey**, not navy | `#303038` was the single most common colour on Home, covering ~70% of the lower screen; R≈G≈B | `GlassSurface` uses a navy-tinted `Theme.glass` (`#1B2438` @ 82%) instead of `.ultraThinMaterial`. Dominant surface colour moved to `#202838` — now genuinely blue — while the accent pixel counts stayed identical, so the frosted look survives. |
 | Unselected tab items failed **WCAG AA** | `#656667` on `#0a0e1a` = **3.35:1** (needs 4.5:1 for small text) | Item colours pinned to `Theme.inkDim` / `Theme.mint` across all three tab-bar layouts. Unselected now **8.0:1**, selected **12.4:1**. |
+| Reels caption ran **under the reaction rail** | Caption text's rightmost pixel sat at x=665, rail's left edge at x=670 — a **5 px (2.5 pt)** gap, i.e. touching | The caption/author column reserves `ReelCard.railClearance` (78 pt) on the trailing edge so copy wraps before the rail. Re-measured: text now ends at x=552, a **118 px (59 pt)** clearance. |
+
+The Reels finding is worth a note on method. Two independent vision reviews
+flagged it; two of *my own* pixel detectors initially contradicted each other
+(a per-row "rightmost bright pixel" heuristic false-positived on rail icons,
+while a run-splitter false-negatived by merging text and rail into one run).
+Neither heuristic was trusted. An ASCII density map of the region was rendered
+instead, which made the overlap directly visible, and the gap was then measured
+with a rail locator keyed on *persistent vertical band count* rather than
+proximity. Measure, look, then measure again — the disagreement between two
+automated checks is itself the signal that a third, more direct look is needed.
 
 One hypothesis that the measurements *disproved*, worth recording so nobody
 re-derives it: Crew and Me appeared to share pixel-identical map tiles with Find,
