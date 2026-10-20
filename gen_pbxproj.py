@@ -355,6 +355,8 @@ def main():
         "GENERATE_INFOPLIST_FILE = YES;",
         f'INFOPLIST_KEY_CFBundleDisplayName = "{DISPLAY_NAME}";',
         'INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Poop Social uses your location to point you at the nearest throne when nature calls.";',
+        'INFOPLIST_KEY_NSMicrophoneUsageDescription = "Poop Social uses the microphone only while you hold the dictate button, to turn your voice into text. Nothing is recorded or kept.";',
+        'INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Poop Social turns your dictated words into text so you can post hands-free. Your speech is processed for that transcript and not stored.";',
         "INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;",
         "INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;",
         "INFOPLIST_KEY_UILaunchScreen_Generation = YES;",

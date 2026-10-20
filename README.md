@@ -47,16 +47,19 @@ project with a working scheme immediately.
 
 ### Tests
 
-29 tests across five suites, all passing on iOS 17.2:
+44 unit + 15 UI tests across seven suites, all passing on iOS 17.2:
 
 | Suite | Kind | Covers |
 | --- | --- | --- |
 | `ContentModeratorTests` | unit (15) | the whole no-images / no-flagged-language choke point |
 | `ContactHasherTests` | unit (13) | the invite privacy claims: one-way, salted, normalised, domain-separated |
+| `LLMRouterTests` | unit (16) | provider ordering, skip-when-unavailable, throw→fallback, empty→fallback, moderation→fallback, explicit total failure, quote/emoji/whitespace cleaning, local determinism + its output passing the app's own moderation |
 | `PoopSocialUITests` | UI (5) | launch, four tabs, composer, hygiene sheet, full navigation |
 | `PoopSocialInteractionUITests` | UI (8) | publishing a drop, refusing empty + flagged input, no image affordance, bathroom detail, crew sheet, invite consent, rapid tab switching |
 | `VisualWalkUITests` | UI (1) | walks all four tabs in order, asserting each one renders content |
 | `LaunchProbeUITests` | UI (1) | onboarding is visible on a first run |
+
+The LLM suite runs with **fake providers** — no network, no key, no simulator — because the thing worth testing is the *fallback contract*, not any particular model's output.
 
 `-startTab home|find|crew|me` opens the app directly onto a tab. It exists
 for screenshot tooling, but it's also the fastest way to poke at one surface
@@ -163,6 +166,13 @@ PoopSocial/
 ├── Data/
 │   ├── Store.swift             THE single write surface (backend seam)
 │   ├── ContactHasher.swift     salted, one-way hashing for invites
+│   ├── LLM.swift               LLMProvider seam + cloud + local-corpus providers
+│   ├── LLMRouter.swift         pure fallback router (order, skip, throw, moderate)
+│   ├── LLMKeyStore.swift       API key in the Keychain, never UserDefaults
+│   ├── LLMFacade.swift         app-only: assembles the provider list in order
+│   ├── AppleFoundationModelProvider.swift  Apple on-device + Private Cloud, #if-guarded
+│   ├── PoopSocialIntents.swift App Entities + App Intents + App Shortcuts, #if-guarded
+│   ├── Dictation.swift         in-app speech-to-text + LLM polish (iOS 17+)
 │   ├── SeedData.swift          first-launch world
 │   ├── JokeBank.swift          ~60 original one-liners
 │   └── HygieneTips.swift       12 tips + deterministic tip-of-the-day
@@ -267,6 +277,108 @@ route raw values through. What's here is the safest possible default until then.
 
 ---
 
+## AI: Siri, Apple Intelligence, and the fallback chain
+
+The app can write in its own voice — hygiene tips, one-liners, and reviews
+punched up — and it can take *voice input*. Those are two different jobs, and
+conflating them is the usual mistake, so they are built as two different things.
+
+### Generation: one seam, four providers, automatic fallback
+
+`LLMProvider` is one protocol with four implementations, and `LLMRouter` walks
+them in order until one answers:
+
+| Order | Provider | Cost | Needs | Notes |
+| --- | --- | --- | --- | --- |
+| 1 | **Apple on-device** (`SystemLanguageModel`) | free | iOS 26+, Apple Intelligence on | offline, no key, private |
+| 2 | **Apple Private Cloud Compute** | free under 2M first downloads | iOS 27+, network | 32K context, reasoning |
+| 3 | **Cloud key** (OpenAI-compatible) | per-token, user's | a key in the Keychain | optional; skipped with no key |
+| 4 | **Local corpus** (`LocalLLMProvider`) | free | nothing | always available — the floor |
+
+The contract, proven by 16 unit tests using fake providers:
+
+1. Unavailable providers are **skipped, not called** (that is the "no API key" path).
+2. A provider that **throws** falls through — network, HTTP, empty output, all of it.
+3. **Moderation applies to every provider identically.** A crude answer from a
+   cloud model does not reach the user when a safe local answer exists. Siri,
+   Apple's models, and OpenAI are all subject to the same choke point.
+4. Output is cleaned: surrounding quotes stripped, emoji removed (the UI adds
+   its own), whitespace collapsed.
+5. **Total failure throws** rather than returning a silent empty string.
+
+Nothing is keyed in a plist or in `UserDefaults` — `LLMKeyStore` uses the
+Keychain with `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`, so the key
+neither syncs nor leaves the device. An install with no key configured behaves
+exactly like a local-only install: no error, no dead feature.
+
+### Voice input: the system layer, plus a floor beneath it
+
+There are two mechanisms, and it is worth being precise about which does what:
+
+- **The system keyboard layer.** On iOS 27, *Write with Siri* and *Type to Siri*
+  sit above the keyboard in any text field, and on every earlier iOS the
+  keyboard's mic key dictates. **These need no code** — the app's only job is not
+  to break them, which means a plain `TextEditor`, no custom `inputView`, and no
+  `inputAccessoryView` covering the field. The composer honours all three.
+- **In-app dictation** (`Dictation.swift`), which works on **iOS 17**, on any
+  device with a microphone, with no Apple Intelligence requirement. It transcribes
+  live via `SFSpeechRecognizer`, then runs the words through the LLM seam so they
+  come out in the app's voice rather than raw. If every provider fails it returns
+  the raw transcript unchanged — **a person's speech disappearing because a model
+  was unreachable would be far worse than an unpolished post.**
+
+### Siri actions: App Intents
+
+Siri's third-party surface for *actions* is App Intents, and the app exposes two
+verbs that map onto `Store` methods that already exist and are already tested:
+
+- **"Hey Siri, rate a bathroom in poop social"** → `RateBathroomIntent` →
+  `Store.submitReview`. The note passes through the same moderation choke point
+  as every other piece of user content — Siri is not a bypass.
+- **"Hey Siri, add a bathroom in poop social"** → `AddBathroomIntent` →
+  `Store.addBathroom`.
+
+`BathroomEntity` is a small, stable projection — an identifier plus presentation
+data, deliberately **not** a SwiftData object or a relationship graph. It
+conforms to `EntityStringQuery` so people can describe a bathroom by name. An
+`AppShortcutsProvider` supplies the phrases, so the intents work without the user
+building a shortcut first.
+
+One honest limitation: **a free-form spoken `String` cannot be reliably spliced
+into an App Shortcut phrase.** Siri resolves entities and enums well; free text
+after a wake phrase is not something to design around. That is exactly why the
+note parameter is optional rather than central, and why the real voice *input*
+path is the keyboard/dictation layer above, not a spoken parameter.
+
+### Toolchain reality, stated plainly
+
+Foundation Models and the iOS 18 App Intents protocols are **not in Xcode 15.2**,
+which is all this Intel iMac can run (hardware-capped; Apple ships nothing newer
+for it). So both are `#if`-guarded:
+
+```swift
+#if canImport(FoundationModels)     // Apple on-device + Private Cloud Compute
+import FoundationModels
+…
+#endif
+
+#if compiler(>=6.0)                 // IndexedEntity — an iOS 18 *symbol*,
+@available(iOS 18.0, *)             // not just an availability question
+extension BathroomEntity: IndexedEntity { … }
+#endif
+```
+
+On Xcode 15.2 those paths compile to a provider that reports `isAvailable ==
+false`, and the router skips it — **verified: `BUILD SUCCEEDED` on the iOS 17.2
+SDK.** On Xcode 26/27 the same file compiles for real and the providers light up
+automatically. One codebase, honest on both toolchains, no maintenance branch.
+
+`IndexedEntity` needs the `#if compiler` guard rather than `#if canImport`,
+because the App Intents *framework* is present on iOS 17 while that *symbol* is
+not — so `canImport` is true and the type is still missing.
+
+---
+
 ## Notes for the curious
 
 - **Paging** (used by the onboarding cover and the review carousel) uses
@@ -297,9 +409,12 @@ simulator runtime) on 2026-10-20.
 
 | Check | Result |
 | --- | --- |
-| `xcodebuild` clean build, iOS 17.2 simulator | **BUILD SUCCEEDED**, 0 warnings |
+| `xcodebuild` clean build, iOS 17.2 simulator | **BUILD SUCCEEDED** |
 | `xcodebuild build-for-testing` | **TEST BUILD SUCCEEDED** |
-| Full test suite on iPhone SE (3rd gen), iOS 17.2 | **29 passed, 0 failed** — `** TEST SUCCEEDED **` |
+| Unit suite on iOS 17.2 | **44 passed, 0 failed** (15 moderator + 13 hasher + 16 LLM router) |
+| Full test suite on iOS 17.2 | **59 passed, 0 failed, 0 crashes** — `** TEST SUCCEEDED **` |
+| LLM fallback contract | proven with fake providers: ordering, skip-if-unavailable, throw→fallback, empty→fallback, moderation→fallback, explicit total failure |
+| `#if`-guarded Apple/Siri paths on Xcode 15.2 | compile to inert providers reporting `isAvailable == false`; router skips them — **verified by building** |
 | Project regenerated from scratch (no `.xcodeproj`) | reproduces byte-identically: `project.pbxproj` md5 `b8874d5f3f45024c43a39fb05a5d6c83` |
 | Regeneration is idempotent + incremental | re-running both scripts leaves the project unchanged; a newly added test file *is* picked up |
 | App bundle | display name `poop social`, bundle id `com.poopsocial.app`, `MinimumOSVersion 17.0` |

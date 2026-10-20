@@ -38,6 +38,10 @@ struct PoopSocialApp: App {
 
         store = Store(context: container.mainContext)
         SeedData.seedIfNeeded(context: container.mainContext)
+        // App Intents run outside the view hierarchy, so they cannot use
+        // `@Environment`. Hand them the same container and store the UI uses —
+        // otherwise an intent's writes would land in a second, unseen store.
+        AppGraph.shared.adopt(container: container, store: store)
         Self.styleBars()
     }
 

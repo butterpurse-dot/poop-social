@@ -30,6 +30,9 @@ struct ComposerSheet: View {
     @State private var showJokeBank = false
     @State private var blockReason: BlockReason?
     @State private var burst = 0
+    /// Dictation is owned by the sheet, not the field, so mode switches and
+    /// re-renders don't tear down a live recording.
+    @State private var dictation = DictationController()
     @Namespace private var modeNS
 
     private let vibes = ["clean-core", "spa", "tragedy", "psa", "haunted", "boss-level"]
@@ -79,6 +82,16 @@ struct ComposerSheet: View {
                 .allowsHitTesting(false)
         }
         .animation(.spring(response: 0.35, dampingFraction: 0.75), value: blockReason)
+        .onDisappear {
+            // Release the mic and the audio session. Leaving a recording tap
+            // installed after the sheet closes would keep the input node busy
+            // and duck other audio for no reason.
+            dictation.reset()
+        }
+        .onChange(of: dictation.error) { _, newValue in
+            guard let newValue else { return }
+            app.show(Toast(emoji: "🎙️", title: "Dictation", detail: newValue.message))
+        }
     }
 
     // MARK: Chrome
@@ -187,6 +200,8 @@ struct ComposerSheet: View {
                     .buttonStyle(PressableStyle())
 
                     Spacer()
+
+                    dictateButton
                 }
 
                 if showEmojiPad {
@@ -292,10 +307,14 @@ struct ComposerSheet: View {
             verdictPicker
 
             VStack(alignment: .leading, spacing: 6) {
-                Text("Notes (optional)")
-                    .font(.body(11, weight: .heavy))
-                    .foregroundStyle(Theme.inkFaint)
-                    .tracking(0.6)
+                HStack {
+                    Text("Notes (optional)")
+                        .font(.body(11, weight: .heavy))
+                        .foregroundStyle(Theme.inkFaint)
+                        .tracking(0.6)
+                    Spacer()
+                    dictateButton
+                }
                 editor(placeholder: "What should the next person know?")
                     .frame(minHeight: 76)
             }
@@ -315,6 +334,77 @@ struct ComposerSheet: View {
     }
 
     // MARK: Pieces
+
+    /// Dictate instead of type.
+    ///
+    /// Note what this is *not* replacing: on iOS 27 the keyboard above this very
+    /// field already offers Write with Siri and Type to Siri, and on every OS the
+    /// keyboard's mic key dictates. Those are system features and need no code.
+    /// This button is the floor beneath them — it works on iOS 17, on any device
+    /// with a mic, and it runs the words through the LLM seam so they come out in
+    /// the app's voice rather than raw.
+    ///
+    /// The composer deliberately keeps a plain `TextEditor` with no custom
+    /// `inputView` or `inputAccessoryView`, which is what allows the system layer
+    /// to work in the first place.
+    private var dictateButton: some View {
+        Button {
+            Task { await toggleDictation() }
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: dictation.isListening ? "waveform" : "mic.fill")
+                    .font(.system(size: 12, weight: .bold))
+                    .symbolEffect(.variableColor.iterative, isActive: dictation.isListening)
+                Text(dictation.isListening ? "Listening" : "Dictate")
+                    .font(.body(12, weight: .bold))
+            }
+            .foregroundStyle(dictation.isListening ? Theme.night : Theme.inkDim)
+            .padding(.horizontal, 12).padding(.vertical, 8)
+            .background(
+                Capsule().fill(
+                    dictation.isListening
+                        ? AnyShapeStyle(Theme.mint)
+                        : AnyShapeStyle(Color.white.opacity(0.07))
+                )
+            )
+        }
+        .buttonStyle(PressableStyle())
+        .accessibilityLabel(dictation.isListening ? "Stop dictating" : "Dictate text")
+    }
+
+    private func toggleDictation() async {
+        if dictation.isListening {
+            dictation.stop()
+            await polishDictation()
+        } else {
+            await dictation.start()
+        }
+    }
+
+    /// After the mic stops, run the raw words through the LLM seam.
+    ///
+    /// Never loses what was said: `VoiceText.polish` returns the raw transcript
+    /// unchanged if every provider fails, and the result only replaces the field
+    /// when it is non-empty.
+    private func polishDictation() async {
+        let spoken = dictation.transcript
+        guard !spoken.isEmpty else { return }
+
+        let polished = await VoiceText.polish(spoken, task: VoiceText.task(for: mode))
+        guard !polished.text.isEmpty else { return }
+
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+            text = polished.text
+        }
+        Haptics.success()
+
+        app.show(Toast(
+            emoji: "🎙️",
+            title: "Polished",
+            detail: polished.providerName.map { "Tidied up by \($0)." }
+                ?? "Tidied up on device."
+        ))
+    }
 
     private func editor(placeholder: String) -> some View {
         ZStack(alignment: .topLeading) {

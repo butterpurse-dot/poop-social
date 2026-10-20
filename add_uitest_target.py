@@ -39,8 +39,10 @@ UNIT_BUNDLE_ID = "com.poopsocial.app.tests"
 UNIT_SHARED_SOURCES = [
     ("PoopSocial/Models/ContentModerator.swift", "ContentModerator.swift"),
     ("PoopSocial/Data/ContactHasher.swift", "ContactHasher.swift"),
+    ("PoopSocial/Data/LLM.swift", "LLM.swift"),
+    ("PoopSocial/Data/LLMRouter.swift", "LLMRouter.swift"),
+    ("PoopSocial/Data/LLMKeyStore.swift", "LLMKeyStore.swift"),
 ]
-
 UI_TARGET = "PoopSocialUITests"
 UI_DIR = "PoopSocialUITests"
 UI_BUNDLE_ID = "com.poopsocial.app.uitests"
