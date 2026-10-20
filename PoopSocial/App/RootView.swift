@@ -15,10 +15,6 @@ struct RootView: View {
                     .tag(RootTab.home)
                     .tabItem { Label(RootTab.home.label, systemImage: RootTab.home.icon) }
 
-                ReelsScreen()
-                    .tag(RootTab.reels)
-                    .tabItem { Label(RootTab.reels.label, systemImage: RootTab.reels.icon) }
-
                 FindScreen()
                     .tag(RootTab.find)
                     .tabItem { Label(RootTab.find.label, systemImage: RootTab.find.icon) }

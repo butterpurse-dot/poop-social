@@ -210,10 +210,21 @@ enum Verdict: String, Codable, CaseIterable, Identifiable {
     }
 }
 
-/// Which surface a post lives on. One model, two presentations.
+/// Which surface a post lives on.
+///
+/// There used to be a second case, `reel`, for the full-screen Reels tab. That
+/// tab was removed, but posts already written to disk (and the seeded store on
+/// existing installs) still carry `"reel"`. Decoding that into an enum with no
+/// matching case crashes SwiftData, so this type decodes **anything** unknown
+/// as `.drop` instead of throwing. That makes the removal a silent, safe
+/// migration rather than a crash on first launch after an update.
 enum PostSurface: String, Codable {
     case drop   // timeline / threads
-    case reel   // full-screen vertical feed
+
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = PostSurface(rawValue: raw) ?? .drop
+    }
 }
 
 // MARK: - Profile
@@ -400,7 +411,7 @@ final class Review {
     var mood: Mood { Mood(rawValue: rating) ?? .survivable }
 }
 
-// MARK: - Post (Drop & Reel)
+// MARK: - Post
 
 @Model
 final class Post {

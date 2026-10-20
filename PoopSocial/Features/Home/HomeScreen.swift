@@ -163,7 +163,7 @@ struct HomeScreen: View {
             HStack(spacing: 13) {
                 Button {
                     Haptics.pop()
-                    app.compose(.reel)
+                    app.compose(.drop)
                 } label: {
                     VStack(spacing: 5) {
                         ZStack {

@@ -112,7 +112,7 @@ struct OnboardingScreen: View {
 
             VStack(spacing: 10) {
                 featureRow("text.bubble.fill", Theme.mint, "Drops", "Short posts and threads. The timeline, but funnier.")
-                featureRow("play.rectangle.fill", Theme.grape, "Reels", "Full-screen one-liners. Swipe up. No video, no photos.")
+                featureRow("sparkles", Theme.grape, "Emoji-first", "React, riff and roast with emoji. No videos, no photos, ever.")
                 featureRow("sparkles", Theme.bubble, "Comedy engine", "Movie-trailer energy, slang and hygiene PSAs on tap.")
             }
             .padding(.horizontal, 20)

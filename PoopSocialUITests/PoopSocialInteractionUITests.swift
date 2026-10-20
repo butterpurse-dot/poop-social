@@ -123,7 +123,7 @@ final class PoopSocialInteractionUITests: XCTestCase {
     /// underneath* — a common source of main-actor reentrancy crashes.
     func testRapidTabSwitchingIsStable() throws {
         for _ in 0..<3 {
-            for label in ["Reels", "Me", "Home", "Find", "Crew"] {
+            for label in ["Me", "Home", "Find", "Crew"] {
                 tapTab(label)
             }
         }

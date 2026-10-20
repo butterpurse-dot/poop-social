@@ -54,19 +54,6 @@ enum Theme {
                        startPoint: .top, endPoint: .bottom)
     }
 
-    /// Five bespoke reel backdrops — chosen by index so reels look distinct.
-    static let reelBackdrops: [LinearGradient] = [
-        LinearGradient(colors: [Color(hex: 0x0B3B4A), Color(hex: 0x123A6B), Color(hex: 0x2B1247)],
-                       startPoint: .topLeading, endPoint: .bottomTrailing),
-        LinearGradient(colors: [Color(hex: 0x3A0B2E), Color(hex: 0x6B1240), Color(hex: 0x2B1247)],
-                       startPoint: .topLeading, endPoint: .bottomTrailing),
-        LinearGradient(colors: [Color(hex: 0x08301F), Color(hex: 0x0E4A3A), Color(hex: 0x0B2540)],
-                       startPoint: .topLeading, endPoint: .bottomTrailing),
-        LinearGradient(colors: [Color(hex: 0x2A1A05), Color(hex: 0x4A2A08), Color(hex: 0x3A0B2E)],
-                       startPoint: .topLeading, endPoint: .bottomTrailing),
-        LinearGradient(colors: [Color(hex: 0x101033), Color(hex: 0x1E1050), Color(hex: 0x3A0B2E)],
-                       startPoint: .topLeading, endPoint: .bottomTrailing)
-    ]
 
     static func moodGradient(_ score: Int) -> LinearGradient {
         switch score {

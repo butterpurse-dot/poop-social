@@ -2,7 +2,7 @@ import Foundation
 import SwiftData
 
 /// First-launch seed. Gives the app a living world immediately so every
-/// surface (feed, reels, map, crew, profile) has something real in it.
+/// surface (feed, map, crew, profile) has something real in it.
 enum SeedData {
 
     private static let seededKey = "poopSocial.seeded.v1"
@@ -285,31 +285,37 @@ enum SeedData {
         _ = drop(me, "Scouting bathrooms this weekend. Taking recommendations and emotional support.",
                  "🫡", "", .neutral, nil, hoursAgo: 0.3)
 
-        // MARK: Posts — reels
+        // MARK: Posts — formerly the Reels surface
+        //
+        // These were full-screen "reel" posts. The Reels tab is gone (it
+        // duplicated what other apps already do, and photos are banned here
+        // anyway), so these now live in the normal Home timeline where their
+        // one-liners still land. Their backdrop/vibe styling is kept because
+        // post cards use it for flavour.
 
         _ = drop(maya, "That wasn't a bathroom break. That was a factory reset.",
                  "🤩", "That wasn't a bathroom break. That was a factory reset.",
-                 .satisfying, mint, hoursAgo: 2.0, surface: .reel, backdrop: 0, vibe: "clean-core")
+                 .satisfying, mint, hoursAgo: 2.0, backdrop: 0, vibe: "clean-core")
 
         _ = drop(dev, "The soap was a rumor. The paper was a myth. I remain changed.",
                  "💀", "The soap was a rumor.",
-                 .unsatisfying, lumiere, hoursAgo: 4.5, surface: .reel, backdrop: 1, vibe: "tragedy")
+                 .unsatisfying, lumiere, hoursAgo: 4.5, backdrop: 1, vibe: "tragedy")
 
         _ = drop(nour, "Twenty seconds. One chorus. That's the whole secret.",
                  "🧼", "Twenty seconds. That's one chorus of your favorite song.",
-                 .neutral, mission, hoursAgo: 7.0, surface: .reel, backdrop: 2, vibe: "psa")
+                 .neutral, mission, hoursAgo: 7.0, backdrop: 2, vibe: "psa")
 
         _ = drop(tom, "I've been through things. That bathroom is now one of them.",
                  "😬", "I've been through things. That bathroom is now one of them.",
-                 .unsatisfying, restStop, hoursAgo: 10.0, surface: .reel, backdrop: 3, vibe: "trauma")
+                 .unsatisfying, restStop, hoursAgo: 10.0, backdrop: 3, vibe: "trauma")
 
         _ = drop(jae, "In space, nobody hears the hand dryer either.",
                  "🎧", "In space, nobody hears the hand dryer either.",
-                 .neutral, transbay, hoursAgo: 14.0, surface: .reel, backdrop: 4, vibe: "haunted")
+                 .neutral, transbay, hoursAgo: 14.0, backdrop: 4, vibe: "haunted")
 
         _ = drop(priya, "This bathroom is lowkey giving spa energy. I said what I said.",
                  "✨", "This bathroom is lowkey giving spa energy.",
-                 .satisfying, meridian, hoursAgo: 20.0, surface: .reel, backdrop: 0, vibe: "spa")
+                 .satisfying, meridian, hoursAgo: 20.0, backdrop: 0, vibe: "spa")
 
         // MARK: Reactions
 

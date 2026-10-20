@@ -42,18 +42,18 @@ final class PoopSocialUITests: XCTestCase {
 
     // MARK: - Tests
 
-    func testLaunchesWithFiveTabs() throws {
+    func testLaunchesWithFourTabs() throws {
         let tabs = app.tabBars.buttons
-        XCTAssertEqual(tabs.count, 5, "expected exactly five root tabs")
+        XCTAssertEqual(tabs.count, 4, "expected exactly four root tabs")
 
-        for label in ["Home", "Reels", "Find", "Crew", "Me"] {
+        for label in ["Home", "Find", "Crew", "Me"] {
             XCTAssertTrue(tabs[label].exists, "missing tab: \(label)")
         }
         waitForContent("Home after launch")
     }
 
     func testEveryTabRenders() throws {
-        for label in ["Home", "Reels", "Find", "Crew", "Me"] {
+        for label in ["Home", "Find", "Crew", "Me"] {
             tapTab(label)
             waitForContent("\(label) tab")
         }
@@ -88,7 +88,7 @@ final class PoopSocialUITests: XCTestCase {
     func testSurvivesFullNavigation() throws {
         // Visit every tab twice to exercise lazy view construction.
         for _ in 0..<2 {
-            for label in ["Home", "Reels", "Find", "Crew", "Me"] {
+            for label in ["Home", "Find", "Crew", "Me"] {
                 tapTab(label)
                 usleep(350_000)
             }

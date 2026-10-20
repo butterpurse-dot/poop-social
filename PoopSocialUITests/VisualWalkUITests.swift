@@ -9,7 +9,7 @@ import XCTest
 /// appears, which is exactly the class of bug a retained `TabView` can cause.
 final class VisualWalkUITests: XCTestCase {
 
-    private let tabs = ["Home", "Reels", "Find", "Crew", "Me"]
+    private let tabs = ["Home", "Find", "Crew", "Me"]
 
     func testCaptureEverySurface() throws {
         let app = XCUIApplication()

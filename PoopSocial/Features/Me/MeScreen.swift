@@ -36,10 +36,6 @@ struct MeScreen: View {
         myPosts.filter { $0.surface == .drop }
     }
 
-    private var myReels: [Post] {
-        myPosts.filter { $0.surface == .reel }
-    }
-
     private var saved: [Post] {
         guard let me else { return [] }
         return me.bookmarks.compactMap { $0.post }.sorted { $0.createdAt > $1.createdAt }
@@ -245,7 +241,7 @@ struct MeScreen: View {
                 BadgeItem(emoji: "🎯", title: "Critic", earned: stats.reviews >= 5, tint: Theme.sky),
                 BadgeItem(emoji: "🏆", title: "Satisfaction", earned: stats.satisfying >= 3, tint: Theme.lime),
                 BadgeItem(emoji: "🧼", title: "Soap scholar", earned: collected.count >= 6, tint: Theme.sky),
-                BadgeItem(emoji: "🎬", title: "Reel star", earned: myReels.count >= 1, tint: Theme.grape)
+                BadgeItem(emoji: "🎭", title: "Emoji royal", earned: stats.bathrooms >= 4, tint: Theme.grape)
             ]
 
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 9), count: 3), spacing: 9) {
@@ -318,7 +314,7 @@ struct MeScreen: View {
 
     private var myDropsSection: some View {
         VStack(alignment: .leading, spacing: 9) {
-            SectionHeader(title: "Your drops", subtitle: "\(myDrops.count) posts · \(myReels.count) reels")
+            SectionHeader(title: "Your drops", subtitle: "\(myDrops.count) posts")
 
             if myDrops.isEmpty {
                 EmptyPanel(

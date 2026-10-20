@@ -4,7 +4,6 @@ import SwiftUI
 
 enum RootTab: String, CaseIterable, Identifiable {
     case home
-    case reels
     case find
     case crew
     case me
@@ -14,7 +13,6 @@ enum RootTab: String, CaseIterable, Identifiable {
     var label: String {
         switch self {
         case .home:  return "Home"
-        case .reels: return "Reels"
         case .find:  return "Find"
         case .crew:  return "Crew"
         case .me:    return "Me"
@@ -24,7 +22,6 @@ enum RootTab: String, CaseIterable, Identifiable {
     var icon: String {
         switch self {
         case .home:  return "house.fill"
-        case .reels: return "play.rectangle.fill"
         case .find:  return "mappin.and.ellipse"
         case .crew:  return "person.2.fill"
         case .me:    return "person.crop.circle.fill"
@@ -36,7 +33,6 @@ enum RootTab: String, CaseIterable, Identifiable {
 
 enum ComposerMode: String, CaseIterable, Identifiable {
     case drop
-    case reel
     case review
 
     var id: String { rawValue }
@@ -44,7 +40,6 @@ enum ComposerMode: String, CaseIterable, Identifiable {
     var label: String {
         switch self {
         case .drop:   return "Drop"
-        case .reel:   return "Reel"
         case .review: return "Review"
         }
     }
@@ -52,7 +47,6 @@ enum ComposerMode: String, CaseIterable, Identifiable {
     var icon: String {
         switch self {
         case .drop:   return "text.bubble.fill"
-        case .reel:   return "play.rectangle.fill"
         case .review: return "star.fill"
         }
     }
@@ -99,7 +93,7 @@ final class AppModel {
             showOnboarding = false
         }
 
-        // `-startTab <home|reels|find|crew|me>` opens straight onto a tab.
+        // `-startTab <home|find|crew|me>` opens straight onto a tab.
         // Used by the screenshot walker, and handy for anyone poking at a
         // single surface without tapping through the app first.
         if let i = args.firstIndex(of: "-startTab"), i + 1 < args.count,

@@ -56,7 +56,6 @@ struct ComposerSheet: View {
 
                     switch mode {
                     case .drop:   dropForm
-                    case .reel:   reelForm
                     case .review: reviewForm
                     }
 
@@ -199,94 +198,6 @@ struct ComposerSheet: View {
                     jokePicker
                         .transition(.scale(scale: 0.94).combined(with: .opacity))
                 }
-            }
-
-            verdictPicker
-            bathroomPicker
-
-            if !joke.isEmpty {
-                jokePreview
-            }
-        }
-        .glassCard(padding: 15)
-    }
-
-    private var reelForm: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("One-liner")
-                    .font(.body(11, weight: .heavy))
-                    .foregroundStyle(Theme.inkFaint)
-                    .tracking(0.6)
-
-                ZStack(alignment: .topLeading) {
-                    if text.isEmpty {
-                        Text("Type the line that lands…")
-                            .foregroundStyle(Theme.inkFaint)
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 8)
-                    }
-                    TextEditor(text: $text)
-                        .scrollContentBackground(.hidden)
-                        .font(.display(19, weight: .heavy))
-                        .foregroundStyle(Theme.ink)
-                        .frame(minHeight: 110)
-                }
-                .padding(4)
-                .background(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(Color.white.opacity(0.05))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .strokeBorder(Color.white.opacity(0.10), lineWidth: 1)
-                        )
-                )
-            }
-
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Backdrop")
-                    .font(.body(11, weight: .heavy))
-                    .foregroundStyle(Theme.inkFaint)
-                    .tracking(0.6)
-                HStack(spacing: 10) {
-                    ForEach(0..<Theme.reelBackdrops.count, id: \.self) { index in
-                        Button {
-                            Haptics.tick()
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.65)) { backdrop = index }
-                        } label: {
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .fill(Theme.reelBackdrops[index])
-                                .frame(width: 44, height: 60)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                        .strokeBorder(
-                                            backdrop == index ? Color.white : Color.white.opacity(0.12),
-                                            lineWidth: backdrop == index ? 2 : 1
-                                        )
-                                )
-                                .scaleEffect(backdrop == index ? 1.06 : 1)
-                        }
-                        .buttonStyle(PressableStyle(scale: 0.9))
-                    }
-                    Spacer()
-                }
-
-                Text("Vibe")
-                    .font(.body(11, weight: .heavy))
-                    .foregroundStyle(Theme.inkFaint)
-                    .tracking(0.6)
-                    .padding(.top, 4)
-
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(vibes, id: \.self) { tag in
-                            Chip(title: tag, selected: vibe == tag, tint: Theme.grape) { picked in
-                                vibe = picked
-                            }
-                        }
-                    }
-                }
-                .scrollClipDisabled()
             }
 
             verdictPicker
@@ -621,9 +532,9 @@ struct ComposerSheet: View {
 
     private var submitButton: some View {
         GlowButton(
-            title: mode == .review ? "Post review" : (mode == .reel ? "Publish reel" : "Post drop"),
+            title: mode == .review ? "Post review" : "Post drop",
             icon: "sparkles",
-            gradient: mode == .reel ? Theme.juicy : Theme.hero
+            gradient: Theme.hero
         ) {
             submit()
         }
@@ -712,13 +623,12 @@ struct ComposerSheet: View {
         blockReason = nil
         burst += 1
 
-        let surface: PostSurface = mode == .reel ? .reel : .drop
         let created = store.createPost(
             author: me,
             body: text,
             emoji: emoji,
             joke: joke,
-            surface: surface,
+            surface: .drop,
             bathroom: pickedBathroom,
             verdict: verdict,
             backdrop: backdrop,
@@ -729,7 +639,7 @@ struct ComposerSheet: View {
             Haptics.success()
             app.show(Toast(
                 emoji: emoji,
-                title: mode == .reel ? "Reel published" : "Drop posted",
+                title: "Drop posted",
                 detail: "Sent to your crew."
             ))
             dismiss()

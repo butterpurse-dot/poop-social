@@ -16,8 +16,8 @@ photos of anything that happens in there.
 3. ⌘R.
 
 No package resolution, no CocoaPods, no build scripts, no network. First launch
-seeds a small San Francisco world (9 people, 9 bathrooms, ~20 reviews, a dozen
-drops, 6 reels, reactions and bookmarks) so every surface has something in it
+seeds a small San Francisco world (9 people, 9 bathrooms, ~20 reviews, ~18
+drops, reactions and bookmarks) so every surface has something in it
 immediately.
 
 The project uses a **generated Info.plist** (`GENERATE_INFOPLIST_FILE = YES`), so
@@ -52,12 +52,12 @@ project with a working scheme immediately.
 | Suite | Kind | Covers |
 | --- | --- | --- |
 | `ContentModeratorTests` | unit (19) | the whole no-images / no-flagged-language choke point |
-| `PoopSocialUITests` | UI (5) | launch, five tabs, composer, hygiene sheet, full navigation |
+| `PoopSocialUITests` | UI (5) | launch, four tabs, composer, hygiene sheet, full navigation |
 | `PoopSocialInteractionUITests` | UI (7) | publishing a drop, refusing empty + flagged input, no image affordance, bathroom detail, crew sheet, rapid tab switching |
-| `VisualWalkUITests` | UI (1) | walks all five tabs in order, asserting each one renders content |
+| `VisualWalkUITests` | UI (1) | walks all four tabs in order, asserting each one renders content |
 | `LaunchProbeUITests` | UI (1) | onboarding is visible on a first run |
 
-`-startTab home|reels|find|crew|me` opens the app directly onto a tab. It exists
+`-startTab home|find|crew|me` opens the app directly onto a tab. It exists
 for screenshot tooling, but it's also the fastest way to poke at one surface
 without tapping through the app first.
 
@@ -97,9 +97,10 @@ measuring them. Two real defects came out of that, both now fixed:
 | --- | --- | --- |
 | Glass cards rendered **neutral grey**, not navy | `#303038` was the single most common colour on Home, covering ~70% of the lower screen; R≈G≈B | `GlassSurface` uses a navy-tinted `Theme.glass` (`#1B2438` @ 82%) instead of `.ultraThinMaterial`. Dominant surface colour moved to `#202838` — now genuinely blue — while the accent pixel counts stayed identical, so the frosted look survives. |
 | Unselected tab items failed **WCAG AA** | `#656667` on `#0a0e1a` = **3.35:1** (needs 4.5:1 for small text) | Item colours pinned to `Theme.inkDim` / `Theme.mint` across all three tab-bar layouts. Unselected now **8.0:1**, selected **12.4:1**. |
-| Reels caption ran **under the reaction rail** | Caption text's rightmost pixel sat at x=665, rail's left edge at x=670 — a **5 px (2.5 pt)** gap, i.e. touching | The caption/author column reserves `ReelCard.railClearance` (78 pt) on the trailing edge so copy wraps before the rail. Re-measured: text now ends at x=552, a **118 px (59 pt)** clearance. |
+| Reels caption ran **under the reaction rail** *(historical — the Reels tab has since been removed; kept as a record of the measurement method)* | Caption text's rightmost pixel sat at x=665, rail's left edge at x=670 — a **5 px (2.5 pt)** gap, i.e. touching | The caption/author column reserved `ReelCard.railClearance` (78 pt) on the trailing edge so copy wrapped before the rail. Re-measured: text now ended at x=552, a **118 px (59 pt)** clearance. The card that used it is gone with the tab; `PostCard` uses the same trailing-clearance idea. |
 
-The Reels finding is worth a note on method. Two independent vision reviews
+The Reels finding is worth a note on method — and it is also the reason to be
+skeptical of vision reviews. Two independent vision reviews
 flagged it; two of *my own* pixel detectors initially contradicted each other
 (a per-row "rightmost bright pixel" heuristic false-positived on rail icons,
 while a run-splitter false-negatived by merging text and rail into one run).
@@ -126,13 +127,19 @@ accessibility tree confirms Crew and Me have **no** map. A speculative
 | Tab | What it does |
 | --- | --- |
 | **Home** | Timeline (`For You` / `Following`), crew strip, daily hygiene PSA, trending thrones rail, threaded replies. |
-| **Reels** | Full-screen vertical paging feed. Every "clip" is an animated text + emoji one-liner with a bespoke gradient backdrop. |
 | **Find** | Map of bathrooms with search, amenity filters, ranked carousel, detail screen with scores, crew-visit row and reviews. |
 | **Crew** | Two connection tiers — **acquaintance** and **friend/bestie** — plus pending requests and a Discover list. |
 | **Me** | Profile, stats, hygiene streak/XP/level, badges, saved posts, your drops. |
 
-Plus a global composer (drop / reel / review), a hygiene playbook sheet, and a
+Plus a global composer (drop / review), a hygiene playbook sheet, and a
 4-page onboarding cover.
+
+> **Why 4 tabs and not 5.** There used to be a **Reels** tab — a full-screen
+> vertical paging feed of text + emoji one-liners. It was removed: it duplicated
+> what other apps already do, and photos and video are banned here by design, so
+> there was nothing genuinely "reel-like" to show. Its seeded posts were kept and
+> migrated to ordinary `.drop` posts, so no content was lost. Tab count went
+> 5 → 4.
 
 ---
 
@@ -165,7 +172,7 @@ PoopSocial/
 │   ├── Haptics.swift           centralized haptics
 │   └── UIActivityBridge.swift  share sheet wrapper
 └── Features/
-    ├── Onboarding/ Home/ Reels/ Find/ Crew/ Me/
+    ├── Onboarding/ Home/ Find/ Crew/ Me/
 
 PoopSocialTests/       unit tests (standalone — compiles the pure sources it needs)
 PoopSocialUITests/     UI tests (drive the app through the accessibility layer)
@@ -210,8 +217,8 @@ structurally, in `Models/ContentModerator.swift`:
    reviews, jokes, bios and emoji.
 
 You'll notice the policy is *shown*, not hidden: a "0 photos · 100% vibes" badge
-in Reels, a no-photo notice under the composer, a line in onboarding, and a
-content-policy card on your own profile.
+on the Home header, a no-photo notice under the composer, a line in onboarding,
+and a content-policy card on your own profile.
 
 All comedy in `JokeBank.swift` is **original writing** for this app — trailer
 voice, internet slang and group-chat banter, none of it lifted from films or TV.
@@ -220,9 +227,10 @@ voice, internet slang and group-chat banter, none of it lifted from films or TV.
 
 ## Notes for the curious
 
-- **Reels paging** uses `ScrollView` + `.scrollTargetLayout()` +
-  `.scrollTargetBehavior(.paging)` + `.containerRelativeFrame(.vertical)` +
-  `.scrollPosition(id:)` rather than a rotated `TabView`.
+- **Paging** (used by the onboarding cover and the review carousel) uses
+  `ScrollView` + `.scrollTargetLayout()` + `.scrollTargetBehavior(.paging)` +
+  `.containerRelativeFrame(.vertical)` + `.scrollPosition(id:)` rather than a
+  rotated `TabView`.
 - **Replies** are stored as a plain `Post.parentID: UUID?` instead of a
   self-referential SwiftData relationship — simpler, faster to query, and it
   sidesteps self-inverse edge cases.
@@ -289,8 +297,9 @@ Real bugs the toolchain caught, all fixed:
 
 - **Nobody has looked at the UI by eye.** Everything visual has been verified by
   decoding screenshots and measuring pixels and accessibility trees — which is
-  how the grey-glass, tab-bar-contrast and Reels-rail defects above were found,
-  so the method does work. Two independent vision-model reviews were also run
+  how the grey-glass and tab-bar-contrast defects above were found (and, back
+  when the Reels tab still existed, the Reels-rail collision), so the method does
+  work. Two independent vision-model reviews were also run
   against the screenshots. They agreed with the pixel measurements on the Reels
   collision, and were **wrong** on several other claims (a "clipped avatar" and
   a "clipped heart icon" that the pixels disprove, plus a "CATRAZ ISLAND"
