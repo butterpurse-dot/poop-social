@@ -1,0 +1,128 @@
+import SwiftUI
+
+// MARK: - Navigation
+
+enum RootTab: String, CaseIterable, Identifiable {
+    case home
+    case reels
+    case find
+    case crew
+    case me
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .home:  return "Home"
+        case .reels: return "Reels"
+        case .find:  return "Find"
+        case .crew:  return "Crew"
+        case .me:    return "Me"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .home:  return "house.fill"
+        case .reels: return "play.rectangle.fill"
+        case .find:  return "mappin.and.ellipse"
+        case .crew:  return "person.2.fill"
+        case .me:    return "person.crop.circle.fill"
+        }
+    }
+}
+
+// MARK: - Composer
+
+enum ComposerMode: String, CaseIterable, Identifiable {
+    case drop
+    case reel
+    case review
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .drop:   return "Drop"
+        case .reel:   return "Reel"
+        case .review: return "Review"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .drop:   return "text.bubble.fill"
+        case .reel:   return "play.rectangle.fill"
+        case .review: return "star.fill"
+        }
+    }
+}
+
+struct ComposerRequest: Identifiable {
+    let id = UUID()
+    var mode: ComposerMode
+    var bathroom: Bathroom? = nil
+}
+
+// MARK: - Toast
+
+struct Toast: Identifiable, Equatable {
+    let id = UUID()
+    var emoji: String
+    var title: String
+    var detail: String? = nil
+}
+
+// MARK: - App model
+
+/// Ephemeral, cross-screen UI state. Persistent data lives in SwiftData.
+@MainActor
+@Observable
+final class AppModel {
+
+    var tab: RootTab = .home
+    var toast: Toast?
+    var composer: ComposerRequest?
+    var showOnboarding: Bool
+    var showHygiene: Bool = false
+    var openedProfileID: UUID?
+    var openedPostID: UUID?
+
+    private var toastTask: Task<Void, Never>?
+
+    init() {
+        showOnboarding = !UserDefaults.standard.bool(forKey: "poopSocial.onboarded")
+
+        // UI tests start on a known screen; onboarding is covered separately.
+        let args = ProcessInfo.processInfo.arguments
+        if args.contains("-uiTestingSkipOnboarding") {
+            showOnboarding = false
+        }
+
+        // `-startTab <home|reels|find|crew|me>` opens straight onto a tab.
+        // Used by the screenshot walker, and handy for anyone poking at a
+        // single surface without tapping through the app first.
+        if let i = args.firstIndex(of: "-startTab"), i + 1 < args.count,
+           let requested = RootTab(rawValue: args[i + 1].lowercased()) {
+            tab = requested
+        }
+    }
+    func show(_ toast: Toast) {
+        self.toast = toast
+        toastTask?.cancel()
+        toastTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 2_600_000_000)
+            guard !Task.isCancelled else { return }
+            self?.toast = nil
+        }
+    }
+
+    func compose(_ mode: ComposerMode, bathroom: Bathroom? = nil) {
+        composer = ComposerRequest(mode: mode, bathroom: bathroom)
+    }
+
+    func finishOnboarding() {
+        UserDefaults.standard.set(true, forKey: "poopSocial.onboarded")
+        showOnboarding = false
+    }
+}
