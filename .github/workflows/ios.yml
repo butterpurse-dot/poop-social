@@ -42,38 +42,59 @@ jobs:
         run: |
           # Choose the newest available iPhone at runtime instead of hardcoding
           # a model that may not exist on a future runner image.
-          UDID=$(xcrun simctl list devices available -j \
-            | python3 -c "
-import json,sys
-d=json.load(sys.stdin)['devices']
-cands=[]
-for runtime,devs in d.items():
-    if 'iOS' not in runtime: continue
-    for dev in devs:
-        if dev.get('isAvailable') and 'iPhone' in dev['name']:
-            cands.append((runtime, dev['name'], dev['udid']))
-if not cands:
-    sys.exit('no iPhone simulator found')
-cands.sort()
-print(cands[-1][2])
-")
+          #
+          # The Python is written to a file rather than passed as `python3 -c
+          # "..."`: the inline form needs quoting that survives a YAML block,
+          # a shell string, and Python's own string literals at once, which is
+          # three levels of escaping and is exactly what broke this workflow
+          # before. A file has none of that.
+          cat > pick_sim.py <<'PY'
+          import json, sys
+          devices = json.load(sys.stdin)["devices"]
+          candidates = []
+          for runtime, devs in devices.items():
+              if "iOS" not in runtime:
+                  continue
+              for dev in devs:
+                  if dev.get("isAvailable") and "iPhone" in dev["name"]:
+                      candidates.append((runtime, dev["name"], dev["udid"]))
+          if not candidates:
+              sys.exit("no iPhone simulator found")
+          candidates.sort()
+          print(candidates[-1][2])
+          PY
+
+          UDID=$(xcrun simctl list devices available -j | python3 pick_sim.py)
           echo "udid=$UDID" >> "$GITHUB_OUTPUT"
           echo "Using simulator: $UDID"
 
       - name: Build
         run: |
+          # `set -o pipefail` so a build failure inside the pipe still fails the
+          # step, and an explicit fallback only for the case where the pretty
+          # printer is genuinely missing.
+          #
+          # The earlier form (`... | xcbeautify || xcodebuild ...`) was wrong in
+          # two ways: a *build* failure looked identical to a missing
+          # `xcbeautify`, so it silently re-ran the build and reported the
+          # second result; and the retry ran without pipefail. Checking for the
+          # tool up front separates those cases cleanly.
           set -o pipefail
-          xcodebuild build \
-            -project PoopSocial.xcodeproj \
-            -scheme PoopSocial \
-            -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
-            -derivedDataPath build \
-            | xcbeautify 2>/dev/null || \
-          xcodebuild build \
-            -project PoopSocial.xcodeproj \
-            -scheme PoopSocial \
-            -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
-            -derivedDataPath build
+
+          if command -v xcbeautify >/dev/null 2>&1; then
+            xcodebuild build \
+              -project PoopSocial.xcodeproj \
+              -scheme PoopSocial \
+              -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
+              -derivedDataPath build \
+              | xcbeautify
+          else
+            xcodebuild build \
+              -project PoopSocial.xcodeproj \
+              -scheme PoopSocial \
+              -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
+              -derivedDataPath build
+          fi
 
       - name: Test
         run: |
