@@ -717,8 +717,8 @@ struct ComposerSheet: View {
             surface: .drop,
             bathroom: pickedBathroom,
             verdict: verdict,
-            backdrop: backdrop,
-            vibe: vibe
+            backdrop: 0,
+            vibe: "clean-core"
         )
 
         if created != nil {
