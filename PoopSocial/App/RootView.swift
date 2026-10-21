@@ -49,7 +49,7 @@ struct RootView: View {
                 .presentationDragIndicator(.visible)
                 .presentationCornerRadius(30)
         }
-        .fullScreenCover(isPresented: $app.showOnboarding) {
+        .fullScreenPresentation(isPresented: $app.showOnboarding) {
             OnboardingScreen()
         }
     }

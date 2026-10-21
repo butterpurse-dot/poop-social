@@ -25,13 +25,14 @@ struct OnboardingScreen: View {
             BubbleBackdrop(tint: Theme.mint, secondary: Theme.bubble)
 
             VStack(spacing: 0) {
-                TabView(selection: $page) {
-                    welcome.tag(0)
-                    throne.tag(1)
-                    social.tag(2)
-                    claim.tag(3)
+                OnboardingPager(page: $page, count: 4) { index in
+                    switch index {
+                    case 0: welcome
+                    case 1: throne
+                    case 2: social
+                    default: claim
+                    }
                 }
-                .tabViewStyle(.page(indexDisplayMode: .never))
                 .animation(.spring(response: 0.5, dampingFraction: 0.85), value: page)
 
                 bottomBar

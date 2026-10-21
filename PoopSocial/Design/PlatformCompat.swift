@@ -87,6 +87,24 @@ extension View {
         #endif
     }
 
+    /// Present a screen that should fill the window.
+    ///
+    /// `fullScreenCover` is iOS-only: macOS has no full-screen-cover concept in
+    /// SwiftUI, only sheets and windows. Onboarding wants to take over the
+    /// screen on iOS, so the wrapper keeps that intent there and falls back to
+    /// the closest macOS equivalent — a sheet — rather than dropping the
+    /// presentation entirely (which would leave onboarding unreachable).
+    func fullScreenPresentation<Content: View>(
+        isPresented: Binding<Bool>,
+        @ViewBuilder content: @escaping () -> Content
+    ) -> some View {
+        #if os(iOS)
+        return fullScreenCover(isPresented: isPresented, content: content)
+        #else
+        return sheet(isPresented: isPresented, content: content)
+        #endif
+    }
+
     /// Hide the navigation bar for a screen that draws its own header.
     ///
     /// iOS hides the UINavigationBar; macOS has no navigation bar to hide, so
@@ -97,6 +115,38 @@ extension View {
         return toolbar(.hidden, for: .navigationBar)
         #else
         return self
+        #endif
+    }
+}
+
+// MARK: - Swipeable onboarding pager, stated once
+//
+// `TabView` with `.tabViewStyle(.page)` is iOS-only: the paging behaviour is
+// built on UIPageViewController and has no macOS equivalent. Onboarding is a
+// four-page swipe deck, so on macOS the pages are shown one at a time — the
+// same selection, the same order and the same spring animation, just without
+// the swipe gesture a Mac user would not expect anyway. The alternative (an
+// `#if os(iOS)` around the whole body) would duplicate the page list and let
+// the two platforms drift.
+struct OnboardingPager<Content: View>: View {
+    @Binding var page: Int
+    let count: Int
+    @ViewBuilder let content: (Int) -> Content
+
+    var body: some View {
+        #if os(iOS)
+        TabView(selection: $page) {
+            ForEach(0..<count, id: \.self) { i in
+                content(i).tag(i)
+            }
+        }
+        .tabViewStyle(.page(indexDisplayMode: .never))
+        #else
+        // macOS has no pager, so draw just the selected page. Keyed by `page`
+        // so the transition animation still fires when the index changes.
+        content(page)
+            .id(page)
+            .transition(.opacity)
         #endif
     }
 }
