@@ -172,10 +172,16 @@ enum AppleFM {
     /// Version mapping, from Apple's own compatibility table:
     ///   Xcode 26.6 -> Swift 6.3, iOS 26.5 SDK, no PCC
     ///   Xcode 27   -> Swift 6.4, iOS 27 SDK, has PCC
+    ///
+    /// The function itself is inside the `#if` as well, not just its call
+    /// sites: it is the *body* that names the missing type, so leaving it
+    /// compiled on Xcode 26 still fails with "cannot find ... in scope".
+    #if compiler(>=6.4)
     @available(iOS 27.0, *)
     private static func privateCloudIsAvailable() -> Bool {
         return PrivateCloudComputeLanguageModel().isAvailable
     }
+    #endif
 
     // MARK: - Generation
 
