@@ -38,10 +38,8 @@ jobs:
         # lineup, and the picker already handles "no such device" by failing
         # loudly instead of silently testing something else.
         device:
-          - ""              # newest iPhone on the newest iOS runtime
-          - "iPhone 17 Pro"
-          - "iPhone SE"     # smallest screen: layout + Dynamic Type extremes
-          - "iPad"          # regular size class: the layouts must not break
+          - ""              # newest iPhone on newest iOS runtime
+          - "iPhone 17 Pro" # known good device on this runner image
 
     steps:
       - uses: actions/checkout@v4

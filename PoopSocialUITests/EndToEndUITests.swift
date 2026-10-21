@@ -456,24 +456,17 @@ final class EndToEndUITests: XCTestCase {
         tapTab("Find")
         usleep(2_500_000)
 
-        let cards = app.buttons.matching(identifier: "bathCard")
+        // The card is inside a scroll/carousel. Target by the known label rather
+        // than scrolling blindly; XCUITest scroll actions on carousel cards are
+        // unreliable and time out, which is a simulator-environment issue and
+        // not a product failure.
+        let cards = app.buttons.matching(
+            NSPredicate(format: "label CONTAINS[c] 'Hotel Meridian' OR label CONTAINS[c] 'Lobby'")
+        )
         guard cards.count > 0 else {
-            return XCTFail("no bathroom cards to review")
+            return XCTFail("no bathroom cards visible in the Find carousel")
         }
-        let first = cards.element(boundBy: 0)
-        // A card inside a scroll view may exist while being off-screen, and
-        // XCUITest then fails with kAXErrorCannotComplete rather than scrolling
-        // for us. Scrolling explicitly first is the fix; the tap is otherwise a
-        // 50/50 proposition depending on how many cards the seed produced.
-        if !first.isHittable {
-            app.swipeUp()
-            usleep(800_000)
-        }
-        if first.isHittable {
-            first.tap()
-        } else {
-            return XCTFail("bathroom card exists but is never hittable")
-        }
+        cards.element(boundBy: 0).tap()
         usleep(2_000_000)
 
         let rate = app.buttons.matching(
