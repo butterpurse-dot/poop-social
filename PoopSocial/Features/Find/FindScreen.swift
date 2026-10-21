@@ -125,6 +125,21 @@ struct FindScreen: View {
                 if app.deepLinkBathroomID != nil {
                     let id = app.deepLinkBathroomID!
                     let special = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
+                    if (id == special && !bathrooms.isEmpty) || bathrooms.first(where: { $0.id == id }) != nil {
+                        if id == special && !bathrooms.isEmpty {
+                            detailRoute = BathroomRoute(bathroom: bathrooms[0])
+                        } else if let target = bathrooms.first(where: { $0.id == id }) {
+                            detailRoute = BathroomRoute(bathroom: target)
+                        }
+                    }
+                    // Deep link retries when SwiftData delivers data; see onChange.
+                }
+            }
+            .onChange(of: bathrooms) { _, _ in
+                // Deep-link retry: SwiftData may deliver data after `.onAppear`.
+                if app.deepLinkBathroomID != nil, detailRoute == nil {
+                    let id = app.deepLinkBathroomID!
+                    let special = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
                     if id == special && !bathrooms.isEmpty {
                         detailRoute = BathroomRoute(bathroom: bathrooms[0])
                     } else if let target = bathrooms.first(where: { $0.id == id }) {

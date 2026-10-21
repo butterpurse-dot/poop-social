@@ -17,8 +17,6 @@ struct ComposerSheet: View {
     @State private var emoji = "🚽"
     @State private var joke = ""
     @State private var verdict: Verdict = .neutral
-    @State private var backdrop = 0
-    @State private var vibe = "clean-core"
     @State private var pickedBathroom: Bathroom?
 
     @State private var mood: Mood = .survivable
@@ -35,13 +33,11 @@ struct ComposerSheet: View {
     @State private var dictation = DictationController()
     @Namespace private var modeNS
 
-    private let vibes = ["clean-core", "spa", "tragedy", "psa", "haunted", "boss-level"]
 
     init(request: ComposerRequest) {
         self.request = request
         _mode = State(initialValue: request.mode)
         _pickedBathroom = State(initialValue: request.bathroom)
-        _vibe = State(initialValue: "clean-core")
     }
 
     private var remaining: Int {
