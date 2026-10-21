@@ -138,9 +138,13 @@ enum AppleFM {
             return false
 
         case .privateCloud:
+            #if compiler(>=6.4)
             if #available(iOS 27.0, *) {
                 return privateCloudIsAvailable()
             }
+            #endif
+            // PCC needs the iOS 27 SDK. On the Xcode 26 SDK the type does not
+            // exist at all, so this is the correct answer there, not a fallback.
             return false
         }
     }
@@ -156,7 +160,18 @@ enum AppleFM {
         return SystemLanguageModel.default.isAvailable
     }
 
-    /// PCC availability. Only ever called from an iOS 27+ context.
+    /// PCC availability. iOS 27+ only, and iOS 27 means the Xcode 27 SDK.
+    ///
+    /// Guarded by `#if compiler(>=6.4)` at the call site rather than only by
+    /// `@available`, because `PrivateCloudComputeLanguageModel` does not exist
+    /// in the iOS 26.5 SDK at all. `@available` can gate the *use* of a type; it
+    /// cannot make a type that is missing from the SDK appear, so on Xcode 26.6
+    /// this produced `cannot find 'PrivateCloudComputeLanguageModel' in scope`
+    /// even while wearing an `@available(iOS 27.0, *)` annotation.
+    ///
+    /// Version mapping, from Apple's own compatibility table:
+    ///   Xcode 26.6 -> Swift 6.3, iOS 26.5 SDK, no PCC
+    ///   Xcode 27   -> Swift 6.4, iOS 27 SDK, has PCC
     @available(iOS 27.0, *)
     private static func privateCloudIsAvailable() -> Bool {
         return PrivateCloudComputeLanguageModel().isAvailable
@@ -188,9 +203,11 @@ enum AppleFM {
             throw LLMError.noProviderAvailable
 
         case .privateCloud:
+            #if compiler(>=6.4)
             if #available(iOS 27.0, *) {
                 return try await completeOnPrivateCloud(systemPrompt: systemPrompt, input: input)
             }
+            #endif
             throw LLMError.noProviderAvailable
         }
     }
@@ -207,7 +224,12 @@ enum AppleFM {
         return try await text(from: session, input: input)
     }
 
-    /// Private Cloud Compute generation. iOS 27+ only.
+    /// Private Cloud Compute generation. iOS 27+ only, and therefore Xcode 27+
+    /// only, because the type is absent from the iOS 26.5 SDK.
+    ///
+    /// Guarded by `#if compiler(>=6.4)` so this function is not compiled at all
+    /// on Xcode 26 — the reference inside it would not resolve there.
+    #if compiler(>=6.4)
     @available(iOS 27.0, *)
     private static func completeOnPrivateCloud(
         systemPrompt: String,
@@ -218,6 +240,7 @@ enum AppleFM {
         }
         return try await text(from: session, input: input)
     }
+    #endif
 
     /// Send the prompt and extract the text, with the error handling and
     /// output cleaning shared by both models.
