@@ -403,9 +403,32 @@ not — so `canImport` is true and the type is still missing.
 
 ## Status
 
-**Built, run and tested on real hardware.** Everything below was executed on an
-Intel iMac running macOS with Xcode 15.2 (iOS 17.2 SDK + installed 17.2
-simulator runtime) on 2026-10-20.
+**Built, run and tested on real hardware, and now proven on the shipping
+toolchain too.** The two are different machines and both matter: the Intel iMac
+is where the app is developed, and GitHub's `macos-26` runner is the one that
+can produce a binary App Store Connect will accept.
+
+### On GitHub's `macos-26` runner — Xcode 26.6, iOS 26.5 SDK
+
+This is the **App Store toolchain**, and the whole build-and-test job is green:
+
+```
+Build & test (Xcode 26)  => success      (14m53s)
+  Build                  => success
+  Test                   => success      ** TEST SUCCEEDED **
+    44 unit tests, 0 failures   (13 hasher + 15 moderator + 16 LLM router)
+    15 UI tests,   0 failures
+```
+
+| Check | Result |
+| --- | --- |
+| Build on Xcode 26.6 / iOS 26.5 SDK | **success** |
+| Test on Xcode 26.6 / iOS 26.5 SDK | **44 + 15 passed, 0 failed** — `** TEST SUCCEEDED **` |
+| The `#if canImport(FoundationModels)` branch, compiled for real | **compiles** — Apple on-device provider is live on this toolchain |
+| The `#if compiler(>=6.4)` branch for Private Cloud Compute | **correctly skipped** — no PCC in the iOS 26.5 SDK; falls through to on-device |
+| Deployment target | still **iOS 17** — the SDK requirement is about the toolchain, not the supported OS range |
+
+### On the Intel iMac — Xcode 15.2, iOS 17.2 SDK
 
 | Check | Result |
 | --- | --- |
@@ -420,6 +443,47 @@ simulator runtime) on 2026-10-20.
 | App bundle | display name `poop social`, bundle id `com.poopsocial.app`, `MinimumOSVersion 17.0` |
 | App icon | 1024×1024 PNG compiled into `Assets.car` via `actool` |
 | Web sibling app | running on `localhost:8899`, 51/51 tests passing |
+
+### What the shipping-toolchain run actually taught us
+
+Getting that green run took several attempts, and the failures were informative
+rather than incidental. Recording them because each is a trap that would
+otherwise be rediscovered:
+
+1. **`secrets` is not a valid named-value in a step `if:`.** Referencing
+   `secrets.ASC_KEY_ID` in `if:` does not degrade gracefully — the whole
+   workflow is rejected at validation, and the API reports it as zero jobs, no
+   log, and the unhelpful summary *"This run likely failed because of a workflow
+   file issue"*. GitHub's own parser names it precisely:
+   `Unrecognized named-value: 'secrets'`. Map it into `env` first and test
+   `env.ASC_KEY_ID`. The lesson: ask the authoritative parser for its verdict
+   instead of bisecting by intuition.
+2. **`canImport` answers the wrong question.** `#if canImport(FoundationModels)`
+   is true on an Xcode 26 build, but every API in that framework is
+   `@available(iOS 26.0, *)` and `PrivateCloudComputeLanguageModel` is iOS 27 —
+   while this app deploys to iOS 17. The compiler's verdict was
+   `'LanguageModelSession' is only available in iOS 26.0 or newer`. A
+   `guard #available(...) else { return }` does **not** extend availability to
+   the rest of a function; the gated code must live in an `@available`-annotated
+   scope.
+3. **`@available` cannot conjure a type that is missing from the SDK.**
+   `PrivateCloudComputeLanguageModel` does not exist in the iOS 26.5 SDK, so no
+   annotation makes it resolve. The discriminator is the compiler version:
+   **Xcode 26.6 → Swift 6.3** (no PCC), **Xcode 27 → Swift 6.4** (has PCC).
+   Hence `#if compiler(>=6.4)`, wrapping the helper *bodies* as well as the call
+   sites — guarding a call site does nothing when the callee is unconditionally
+   compiled.
+4. **`actions/checkout@v5` is not resolvable on this runner**, and an
+   unresolvable action produces the same zero-jobs rejection as (1). The
+   `Node.js 20 is deprecated` warning from `@v4` is cosmetic; trading a warning
+   for a hard failure was a bad deal.
+
+Two failure shapes look alike and must not be conflated:
+
+| Shape | Symptoms | Where to look |
+| --- | --- | --- |
+| Rejected at validation | 0 jobs, no log, "workflow file issue" | GitHub's parser: the dispatch endpoint's error |
+| Ran and failed | a job, a log, check-run annotations | the job's log, `grep error:` |
 
 Earlier work on the same host also confirmed `swiftc -typecheck` and both
 `-Onone`/`-O` compiles across all app sources with **0 errors, 0 warnings**.
