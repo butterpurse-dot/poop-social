@@ -43,7 +43,14 @@ struct RootView: View {
                 .presentationDragIndicator(.visible)
                 .presentationCornerRadius(30)
         }
-        .sheet(isPresented: $app.showHygiene) {
+        .sheet(isPresented: $app.showHygiene, onDismiss: {
+            // Once the hygiene PSA has actually been viewed, the Home screen
+            // stops showing the tip banner. Before this, `showTip` was a
+            // constant `true` that was read but never written, so the tip was
+            // permanently sticky -- it could be tapped but never got out of
+            // the way.
+            app.hasSeenHygieneTip = true
+        }) {
             HygieneScreen()
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)

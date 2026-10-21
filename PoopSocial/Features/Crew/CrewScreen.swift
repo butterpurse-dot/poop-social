@@ -255,7 +255,7 @@ struct CrewScreen: View {
                         Button {
                             store.accept(request)
                             app.show(Toast(emoji: "🤝", title: "\(person.displayName) added",
-                                           detail: "You're now acquaintances."))
+                                           detail: "You're now friends."))
                         } label: {
                             Text("Accept")
                                 .font(.body(11, weight: .bold))

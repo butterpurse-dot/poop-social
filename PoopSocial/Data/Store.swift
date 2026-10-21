@@ -203,6 +203,10 @@ final class Store {
             switch link.state {
             case .incoming:
                 link.state = .linked
+                // Accepting an incoming request must produce the same tier as
+                // `accept(_:)` -- otherwise the same action yields "acquaintance"
+                // via the profile sheet and "friend" via the requests list.
+                if link.closeness < .friend { link.closeness = .friend }
                 Haptics.success()
             case .linked, .outgoing:
                 context.delete(link)

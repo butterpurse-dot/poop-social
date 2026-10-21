@@ -79,6 +79,11 @@ final class AppModel {
     var composer: ComposerRequest?
     var showOnboarding: Bool
     var showHygiene: Bool = false
+
+    /// Set once the hygiene PSA has been opened. The Home screen uses it to
+    /// stop showing the tip banner, which was previously a constant `true`
+    /// that was read but never written.
+    var hasSeenHygieneTip: Bool = false
     var openedProfileID: UUID?
     var openedPostID: UUID?
 

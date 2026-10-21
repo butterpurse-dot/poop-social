@@ -230,9 +230,10 @@ struct PostCard: View {
                         } label: {
                             Text(emoji)
                                 .font(.system(size: 21))
-                                .frame(width: 42, height: 42)
+                                .frame(minWidth: 44, minHeight: 44)
                                 .background(Circle().fill(Color.white.opacity(0.07)))
                         }
+                        .accessibilityLabel("React \(emoji)")
                         .buttonStyle(PressableStyle(scale: 0.85))
                     }
                 }
@@ -249,17 +250,20 @@ struct PostCard: View {
             actionButton("bubble.left", count: replyCount, tint: Theme.sky) {
                 onOpenThread?()
             }
+            .accessibilityLabel("Reply to post")
             actionButton("arrow.2.squarepath", count: post.reposts.count,
                          tint: store.hasReposted(post, by: me) ? Theme.mint : Theme.inkDim) {
                 let added = store.toggleRepost(post, by: me)
                 if added { app.show(Toast(emoji: "🔁", title: "Reposted", detail: "Your crew will see it.")) }
             }
+            .accessibilityLabel("Repost")
             actionButton(showPicker ? "face.smiling.fill" : "face.smiling",
                          count: post.totalReactions, tint: Theme.bubble) {
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.72)) {
                     showPicker.toggle()
                 }
             }
+            .accessibilityLabel("React")
             actionButton(store.hasBookmarked(post, by: me) ? "bookmark.fill" : "bookmark",
                          count: nil,
                          tint: store.hasBookmarked(post, by: me) ? Theme.tangerine : Theme.inkDim) {

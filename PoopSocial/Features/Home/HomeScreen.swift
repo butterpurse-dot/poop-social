@@ -28,7 +28,7 @@ struct HomeScreen: View {
     @State private var personRoute: PersonRoute?
     @State private var bathroomRoute: BathroomRoute?
     @State private var threadRoute: PostRoute?
-    @State private var showTip = true
+
     @Namespace private var scopeNS
 
     private var me: Profile? { profiles.first { $0.isMe } }
@@ -75,7 +75,7 @@ struct HomeScreen: View {
                         header
                         crewStrip
                         scopePicker
-                        if showTip { dailyTip }
+                        if !app.hasSeenHygieneTip { dailyTip }
                         trendingRail
                         feed
                     }

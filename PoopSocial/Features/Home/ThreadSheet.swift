@@ -15,6 +15,9 @@ struct ThreadSheet: View {
 
     @State private var replyText = ""
     @State private var burst = 0
+    @State private var personRoute: PersonRoute?
+    @State private var bathroomRoute: BathroomRoute?
+    @State private var threadRoute: PostRoute?
 
     private var me: Profile? { profiles.first { $0.isMe } }
 
@@ -32,7 +35,10 @@ struct ThreadSheet: View {
 
                 ScrollView {
                     LazyVStack(spacing: 10) {
-                        PostCard(post: post, me: me, replyCount: replies.count)
+                        PostCard(post: post, me: me, replyCount: replies.count,
+                                onOpenThread: { threadRoute = PostRoute(post: post) },
+                                onOpenAuthor: { if let a = post.author { personRoute = PersonRoute(profile: a) } },
+                                onOpenBathroom: { if let b = post.bathroom { bathroomRoute = BathroomRoute(bathroom: b) } })
 
                         HStack(spacing: 10) {
                             Capsule().fill(Color.white.opacity(0.10))
@@ -50,7 +56,7 @@ struct ThreadSheet: View {
                             PostCard(
                                 post: reply,
                                 me: me,
-                                onOpenAuthor: { dismiss() }
+                                onOpenAuthor: { if let a = reply.author { personRoute = PersonRoute(profile: a) } }
                             )
                             .popIn(index)
                         }
@@ -63,6 +69,18 @@ struct ThreadSheet: View {
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             replyBar
+        }
+        .sheet(item: $personRoute) { route in
+            PersonSheet(profile: route.profile)
+                .presentationDetents([.large])
+        }
+        .sheet(item: $bathroomRoute) { route in
+            BathroomDetailScreen(bathroom: route.bathroom)
+                .presentationDetents([.large])
+        }
+        .sheet(item: $threadRoute) { route in
+            ThreadSheet(post: route.post)
+                .presentationDetents([.large])
         }
         .overlay(alignment: .center) {
             EmojiBurst(emojis: ["🔥", "💬", "✨", "🚽"], trigger: burst)
