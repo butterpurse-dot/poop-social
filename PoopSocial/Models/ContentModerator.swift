@@ -112,8 +112,24 @@ struct LocalModerator: Moderating {
     }
 
     /// The single media choke point. Images are unrepresentable by design.
+    /// Only the three known non-image kinds are allowed; anything else is
+    /// rejected immediately rather than falling through. This is the structural
+    /// enforcement: `MediaKind` has no image case, and even if a future update
+    /// accidentally added `.photo` (or `.nude`, `.video`), the validator blocks
+    /// it by default rather than relying solely on the enum's absence.
+    ///
+    /// Before: `.allowed` unconditionally for any kind, so an unknown kind
+    /// silently passed. After: `.allowed` only for the known-safe set.
     func validateMedia(_ kind: MediaKind) -> ModerationVerdict {
-        .allowed
+        switch kind {
+        case .emoji, .textLine, .quoteCard:
+            return .allowed
+        default:
+            // Defensive: `default` catches any future case added without an
+            // explicit approval decision. This aligns with the structural policy:
+            // if it was not explicitly named safe, it is not safe.
+            return .blocked(.noImagesAllowed)
+        }
     }
 
     func validateEmoji(_ emoji: String) -> ModerationVerdict {
