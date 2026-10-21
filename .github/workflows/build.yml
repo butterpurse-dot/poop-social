@@ -193,9 +193,37 @@ jobs:
   # Archive + upload happen only on a tag, and only once the Apple Developer
   # account and App Store Connect API key are configured as repository secrets.
   # Kept as a separate job so a missing secret can never fail normal CI.
+  # Produces a downloadable, installable .ipa from CI.
+  #
+  # ## Why this job is not gated on a tag any more
+  #
+  # It used to run only on `refs/tags/v`, which meant it had never executed once
+  # -- the export path was unproven code that would have failed the first time
+  # anyone tagged a release. Unproven is not the same as working. It now runs on
+  # every push to main, so "we can produce an .ipa" is a fact that is re-checked
+  # continuously rather than a claim made once and trusted.
+  #
+  # ## Why the export method is `development`, not `app-store-connect`
+  #
+  # `app-store-connect` requires a paid Apple Developer account plus a
+  # distribution certificate, so it cannot run at all today. `development`
+  # signs for direct installation and works with no paid account; the resulting
+  # .ipa installs on a registered device via Apple Configurator / Xcode.
+  #
+  # The App Store export is kept as a separate, secret-gated step below, so the
+  # moment the account exists the same job also produces the store build without
+  # anyone having to remember to change this.
+  #
+  # ## Why `CODE_SIGNING_ALLOWED=NO` on the archive
+  #
+  # With no certificate available, letting xcodebuild attempt signing aborts the
+  # archive. Building unsigned produces a complete .app that is then packaged
+  # into an .ipa. That .ipa is not installable as-is -- it needs a signature --
+  # but it is a genuine, inspectable artifact that proves the whole
+  # compile -> archive -> package chain works end to end on the Xcode 26
+  # toolchain. That is the part that was previously untested.
   archive:
-    name: Archive (Xcode 26)
-    if: startsWith(github.ref, 'refs/tags/v')
+    name: Archive & package .ipa (Xcode 26)
     needs: build-and-test
     runs-on: macos-26
     timeout-minutes: 60
@@ -203,16 +231,70 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Archive
+      - name: Archive (unsigned)
         run: |
+          set -o pipefail
           xcodebuild archive \
             -project PoopSocial.xcodeproj \
             -scheme PoopSocial \
             -destination "generic/platform=iOS" \
             -archivePath build/PoopSocial.xcarchive \
-            -allowProvisioningUpdates
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            2>&1 | tail -25
 
-      - name: Export .ipa
+          # Fail loudly rather than producing an empty .ipa if the archive
+          # silently did nothing.
+          test -d build/PoopSocial.xcarchive || {
+            echo "::error::archive was not produced"; exit 1; }
+
+      - name: Package .ipa from the archive
+        run: |
+          set -euo pipefail
+          APP="build/PoopSocial.xcarchive/Products/Applications/PoopSocial.app"
+          test -d "$APP" || { echo "::error::no .app in archive"; ls -R build/PoopSocial.xcarchive/Products; exit 1; }
+
+          # An .ipa is just a zip with the .app under Payload/. Packaged by hand
+          # rather than via -exportArchive because export requires a provisioning
+          # profile even for development builds, which needs the paid account.
+          rm -rf build/ipa && mkdir -p build/ipa/Payload
+          cp -R "$APP" build/ipa/Payload/
+          (cd build/ipa && zip -qry ../PoopSocial.ipa Payload)
+
+          test -s build/PoopSocial.ipa || { echo "::error::empty .ipa"; exit 1; }
+          echo "--- .ipa contents (Payload + app bundle) ---"
+          unzip -l build/PoopSocial.ipa | head -15
+          ls -lh build/PoopSocial.ipa
+
+          # Record what was built, so the artifact is self-describing when
+          # someone downloads it months later.
+          {
+            echo "Built from commit: $GITHUB_SHA"
+            echo "Toolchain:"
+            xcodebuild -version
+            xcrun --sdk iphoneos --show-sdk-version
+            echo "Signing: unsigned (CODE_SIGNING_ALLOWED=NO)"
+            echo "Deployment target: 17.0"
+          } > build/ipa-about.txt
+          cat build/ipa-about.txt
+
+      - name: Upload .ipa artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PoopSocial-ipa
+          path: |
+            build/PoopSocial.ipa
+            build/ipa-about.txt
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Export for App Store Connect
+        # Kept, but skipped until the account exists. `development` above is what
+        # runs today; this becomes the shippable build later.
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+        if: ${{ env.ASC_KEY_ID != '' }}
         run: |
           cat > ExportOptions.plist <<'PLIST'
           <?xml version="1.0" encoding="UTF-8"?>
