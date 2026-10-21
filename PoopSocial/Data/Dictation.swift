@@ -123,9 +123,15 @@ final class DictationController {
         // spoken, not all at once at the end.
         request.shouldReportPartialResults = true
 
+        #if os(iOS)
+        // iOS requires the audio session to be configured before the engine
+        // starts: without `.record` the input node yields silence and the
+        // recogniser returns nothing. macOS has no AVAudioSession — the engine
+        // owns input routing there — so this config is iOS-only.
         let session = AVAudioSession.sharedInstance()
         try session.setCategory(.record, mode: .measurement, options: .duckOthers)
         try session.setActive(true, options: .notifyOthersOnDeactivation)
+        #endif
 
         let input = engine.inputNode
         let format = input.outputFormat(forBus: 0)
@@ -166,7 +172,9 @@ final class DictationController {
         isListening = false
 
         // Give the ducked audio back rather than leaving the phone quiet.
+        #if os(iOS)
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        #endif
     }
 
     /// Clear the transcript, e.g. when the sheet closes.

@@ -63,7 +63,7 @@ struct InviteSheet: View {
                 }
                 .scrollIndicators(.hidden)
             }
-            .toolbar(.hidden, for: .navigationBar)
+            .hidesNavigationBar()
             .safeAreaInset(edge: .top) { topBar }
             .onAppear { focused = true }
         }
@@ -120,8 +120,8 @@ struct InviteSheet: View {
                     .foregroundStyle(Theme.mint)
                 TextField("+1 415 555 0100 or maya@example.com", text: $input)
                     .font(.body(15, weight: .medium))
-                    .keyboardType(.emailAddress)
-                    .textInputAutocapitalization(.never)
+                    .emailKeyboard()
+                    .noAutocapitalization()
                     .autocorrectionDisabled()
                     .focused($focused)
                 if !input.isEmpty {

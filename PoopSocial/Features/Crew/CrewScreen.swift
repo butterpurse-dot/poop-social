@@ -107,7 +107,7 @@ struct CrewScreen: View {
                 }
                 .scrollIndicators(.hidden)
             }
-            .toolbar(.hidden, for: .navigationBar)
+            .hidesNavigationBar()
             .sheet(item: $personRoute) { route in
                 PersonSheet(profile: route.profile)
                     .presentationDetents([.large])
@@ -156,7 +156,7 @@ struct CrewScreen: View {
                 .foregroundStyle(Theme.inkFaint)
             TextField("Search by name or @handle", text: $search)
                 .font(.body(14, weight: .medium))
-                .textInputAutocapitalization(.never)
+                .noAutocapitalization()
                 .autocorrectionDisabled()
             if !search.isEmpty {
                 Button { search = "" } label: {

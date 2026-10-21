@@ -78,7 +78,7 @@ struct MeScreen: View {
                 }
                 .scrollIndicators(.hidden)
             }
-            .toolbar(.hidden, for: .navigationBar)
+            .hidesNavigationBar()
             .sheet(isPresented: $showEdit) {
                 EditProfileSheet()
                     .presentationDetents([.large])

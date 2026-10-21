@@ -343,7 +343,27 @@ def main():
         f"IPHONEOS_DEPLOYMENT_TARGET = {DEPLOYMENT_TARGET};",
         "LOCALIZATION_PREFERS_STRING_CATALOGS = YES;",
         "MTL_FAST_MATH = YES;",
+        # `SDKROOT = iphoneos` keeps iOS the default, but the app is genuinely
+        # built for macOS too (see SUPPORTED_PLATFORMS below). Leaving SDKROOT
+        # at iphoneos means a plain `xcodebuild` with no -destination still
+        # produces the iOS build, which is what every existing script and the
+        # local iMac workflow expects.
         "SDKROOT = iphoneos;",
+        #
+        # Multiplatform. The code is written to compile for both: the four
+        # UIKit touchpoints (haptics, share sheet, bar styling, audio session)
+        # are guarded with `#if os(iOS)`, and everything else — SwiftUI,
+        # SwiftData, CoreLocation, Speech, App Intents — is cross-platform.
+        #
+        # This matters because "it runs on a Mac" is a claim that should be
+        # checkable, not asserted. Without macosx here there is no way to build
+        # the macOS slice at all, so the claim could never be tested.
+        "SUPPORTED_PLATFORMS = \"iphoneos iphonesimulator macosx\";",
+        "MACOSX_DEPLOYMENT_TARGET = 14.0;",
+        # The macOS slice is built as a real app, not a Catalyst translation:
+        # Catalyst would require the UIKit paths above to stay, which is the
+        # opposite of the goal.
+        "SUPPORTS_MACCATALYST = NO;",
     ]
 
     target_settings = [

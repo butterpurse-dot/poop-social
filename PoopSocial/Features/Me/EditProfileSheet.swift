@@ -136,7 +136,7 @@ struct EditProfileSheet: View {
                 }
                 TextField(placeholder, text: text)
                     .font(.body(14, weight: .medium))
-                    .textInputAutocapitalization(prefix.isEmpty ? .words : .never)
+                    .conditionalAutocapitalization(prefix.isEmpty ? .words : .never)
                     .autocorrectionDisabled()
             }
             .padding(.horizontal, 13)

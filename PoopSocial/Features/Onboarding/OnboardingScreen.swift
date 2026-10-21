@@ -257,7 +257,7 @@ struct OnboardingScreen: View {
                 }
                 TextField(placeholder, text: text)
                     .font(.body(15, weight: .semibold))
-                    .textInputAutocapitalization(.never)
+                    .noAutocapitalization()
                     .autocorrectionDisabled()
             }
             .padding(.horizontal, 14)

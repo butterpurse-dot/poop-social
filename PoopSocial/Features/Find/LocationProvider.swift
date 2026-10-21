@@ -26,7 +26,7 @@ final class LocationProvider: NSObject, ObservableObject, CLLocationManagerDeleg
 
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         status = manager.authorizationStatus
-        if status == .authorizedWhenInUse || status == .authorizedAlways {
+        if status.allowsLocationUse {
             manager.startUpdatingLocation()
         }
     }

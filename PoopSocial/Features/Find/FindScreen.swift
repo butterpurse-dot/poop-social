@@ -100,7 +100,7 @@ struct FindScreen: View {
                 }
                 .padding(.top, 6)
             }
-            .toolbar(.hidden, for: .navigationBar)
+            .hidesNavigationBar()
             .ignoresSafeArea(edges: .bottom)
             .sheet(item: $detailRoute) { route in
                 BathroomDetailScreen(bathroom: route.bathroom)
@@ -173,7 +173,7 @@ struct FindScreen: View {
 
             TextField("Search bathrooms or areas", text: $search)
                 .font(.body(14, weight: .medium))
-                .textInputAutocapitalization(.never)
+                .noAutocapitalization()
                 .autocorrectionDisabled()
 
             if !search.isEmpty {

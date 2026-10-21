@@ -91,7 +91,7 @@ struct HomeScreen: View {
                                    detail: "The timeline is fresh."))
                 }
             }
-            .toolbar(.hidden, for: .navigationBar)
+            .hidesNavigationBar()
             .sheet(item: $personRoute) { route in
                 PersonSheet(profile: route.profile)
                     .presentationDetents([.large])

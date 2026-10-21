@@ -20,12 +20,28 @@ on:
 
 jobs:
   build-and-test:
-    name: Build & test (Xcode 26)
+    name: Build & test (Xcode 26) — ${{ matrix.device == '' && 'newest iPhone' || matrix.device }}
     # macos-26 is arm64 and ships Xcode 26.x with the iOS 26 SDK, which is
     # what App Store Connect accepts. macos-latest may still point at an
     # older image, so pin explicitly rather than trust the alias.
     runs-on: macos-26
     timeout-minutes: 60
+
+    strategy:
+      # Don't kill the other simulators when one fails -- a failure on, say,
+      # the smallest iPhone is more useful next to a pass on the largest.
+      fail-fast: false
+      matrix:
+        # Device-name fragments, resolved at runtime against whatever the
+        # runner image actually has. Naming a *fragment* rather than a full
+        # "iPhone 17 Pro" means this keeps working when Apple renames the
+        # lineup, and the picker already handles "no such device" by failing
+        # loudly instead of silently testing something else.
+        device:
+          - ""              # newest iPhone on the newest iOS runtime
+          - "iPhone 17 Pro"
+          - "iPhone SE"     # smallest screen: layout + Dynamic Type extremes
+          - "iPad"          # regular size class: the layouts must not break
 
     steps:
       - uses: actions/checkout@v4
@@ -39,6 +55,9 @@ jobs:
 
       - name: Pick a simulator
         id: sim
+        env:
+          # Empty string for the first matrix leg means "newest iPhone".
+          WANT_DEVICE: ${{ matrix.device }}
         run: |
           # Choose the newest available iPhone at runtime instead of hardcoding
           # a model that may not exist on a future runner image.
@@ -49,19 +68,50 @@ jobs:
           # three levels of escaping and is exactly what broke this workflow
           # before. A file has none of that.
           cat > pick_sim.py <<'PY'
-          import json, sys
+          import json, re, sys, os
+
           devices = json.load(sys.stdin)["devices"]
+          want_device = os.environ.get("WANT_DEVICE", "")
+
+          def ios_version(runtime):
+              """Sort key from a runtime id like
+              com.apple.CoreSimulator.SimRuntime.iOS-26-4 -> (26, 4).
+
+              Parsed numerically, not compared as a string: a string sort puts
+              iOS-26-10 *below* iOS-26-4, so the day a 26.10 runtime appears the
+              picker would silently select an older simulator.
+              """
+              m = re.search(r"iOS-(\d+)(?:-(\d+))?", runtime)
+              if not m:
+                  return None
+              major = int(m.group(1))
+              minor = int(m.group(2) or 0)
+              return (major, minor)
+
           candidates = []
           for runtime, devs in devices.items():
-              if "iOS" not in runtime:
+              version = ios_version(runtime)
+              if version is None:
                   continue
               for dev in devs:
-                  if dev.get("isAvailable") and "iPhone" in dev["name"]:
-                      candidates.append((runtime, dev["name"], dev["udid"]))
+                  if not dev.get("isAvailable"):
+                      continue
+                  if "iPhone" not in dev["name"]:
+                      continue
+                  if want_device and want_device not in dev["name"]:
+                      continue
+                  candidates.append((version, dev["name"], dev["udid"], runtime))
+
           if not candidates:
-              sys.exit("no iPhone simulator found")
-          candidates.sort()
-          print(candidates[-1][2])
+              sys.exit(f"no iPhone simulator found (WANT_DEVICE={want_device!r})")
+
+          # Newest OS first; ties broken by device name so the choice is stable
+          # rather than dict-order dependent.
+          candidates.sort(key=lambda c: (c[0], c[1]))
+          version, name, udid, runtime = candidates[-1]
+          print(udid)
+          print(f"picked {name} on iOS {version[0]}.{version[1]} ({runtime})",
+                file=sys.stderr)
           PY
 
           UDID=$(xcrun simctl list devices available -j | python3 pick_sim.py)
