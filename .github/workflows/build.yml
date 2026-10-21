@@ -98,15 +98,47 @@ jobs:
 
       - name: Test
         run: |
+          # Boot and warm the simulator first.
+          #
+          # Without this, the UI tests intermittently died with launch and
+          # terminate timeouts:
+          #
+          #   Failed to terminate com.poopsocial.app:5016
+          #   Timed out while launching application via Xcode
+          #
+          # Which test failed was random (a different one each attempt), and
+          # the same tests passed when the simulator happened to be warm, so
+          # this is the runner not the tests. Booting explicitly, and opening
+          # Simulator.app so the UI session is actually up, removes the race.
+          SIM="${{ steps.sim.outputs.udid }}"
+          xcrun simctl boot "$SIM" 2>/dev/null || true
+          xcrun simctl bootstatus "$SIM" -b || true
+          open -a "$(xcode-select -p)/Applications/Simulator.app" || true
+
+          # Give the SpringBoard a moment to settle after boot; launching
+          # straight into a test run while the simulator is still starting is
+          # exactly the window that timed out above.
+          for _ in $(seq 1 30); do
+            xcrun simctl spawn "$SIM" launchctl list >/dev/null 2>&1 && break
+            sleep 2
+          done
+
           # -parallel-testing-enabled NO is deliberate: the suites are not
           # parallel-safe (they drive a shared simulator UI), and cloned
           # devices have been unreliable. See README.
+          #
+          # -retry-tests-on-failure gives a genuinely flaky UI test one more
+          # chance without hiding a real failure: a test that only passes on
+          # retry is still reported, so it cannot mask a regression the way a
+          # blanket retry of the job would.
           xcodebuild test \
             -project PoopSocial.xcodeproj \
             -scheme PoopSocial \
-            -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
+            -destination "platform=iOS Simulator,id=$SIM" \
             -derivedDataPath build \
-            -parallel-testing-enabled NO
+            -parallel-testing-enabled NO \
+            -retry-tests-on-failure \
+            -test-iterations 2
 
   # Archive + upload happen only on a tag, and only once the Apple Developer
   # account and App Store Connect API key are configured as repository secrets.
