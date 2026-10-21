@@ -39,13 +39,19 @@ final class EndToEndUITests: XCTestCase {
 
     /// Launch with the probe on and a freshly wiped graph.
     private func launchFresh() {
+        launchFresh(arguments: [])
+    }
+
+    /// Launch with the probe on, a freshly wiped graph, and any extra launch
+    /// arguments (e.g. `-openFirstBathroom` for deterministic navigation).
+    private func launchFresh(arguments extra: [String]) {
         app = XCUIApplication()
         app.launchArguments = [
             "-uiTesting",
             "-uiTestingSkipOnboarding",
             "-e2eFresh",
             "-e2eProbe",
-        ]
+        ] + extra
         app.launch()
         XCTAssertTrue(app.waitForExistence(timeout: 30), "app did not stay running")
         waitForProbe()
@@ -452,37 +458,29 @@ final class EndToEndUITests: XCTestCase {
     /// Bathroom + review wiring: a review that stored but attached to no bathroom
     /// is a real bug, and the probe reports attachment separately from count.
     func testReviewAttachesToBathroom() throws {
-        launchFresh()
-        tapTab("Find")
-        usleep(2_500_000)
-
-        // The card is inside a scroll/carousel. Target by the known label rather
-        // than scrolling blindly; XCUITest scroll actions on carousel cards are
-        // unreliable and time out, which is a simulator-environment issue and
-        // not a product failure.
-        let cards = app.buttons.matching(
-            NSPredicate(format: "label CONTAINS[c] 'Hotel Meridian' OR label CONTAINS[c] 'Lobby'")
-        )
-        guard cards.count > 0 else {
-            return XCTFail("no bathroom cards visible in the Find carousel")
-        }
-        cards.element(boundBy: 0).tap()
+        // Deterministic: open the first bathroom directly (skips the Find
+        // screen's MapKit map, which produces a very large accessibility tree
+        // that causes XCUITest queries to time out -- a simulator environment
+        // artifact, not a product failure). The claim being tested is that a
+        // submitted review is stored with a bathroom reference.
+        launchFresh(arguments: ["-openFirstBathroom"])
         usleep(2_000_000)
 
+        // The bathroom detail should be open (presented from FindScreen's
+        // .sheet). We verify the review action exists.
         let rate = app.buttons.matching(
-            NSPredicate(format: "label CONTAINS[c] 'rate this throne'")
+            NSPredicate(format: "label CONTAINS[c] 'Rate this throne'")
         ).firstMatch
         XCTAssertTrue(rate.waitForExistence(timeout: 10),
                       "bathroom detail has no review action")
         rate.tap()
         usleep(1_500_000)
 
-        // Fill whatever the review composer asks for, then submit.
-        if app.textViews.firstMatch.waitForExistence(timeout: 8) {
-            app.textViews.firstMatch.tap()
-            app.textViews.firstMatch.typeText("e2e review note")
-        }
-        firstButton(containing: ["Post review", "Submit", "Post"])?.tap()
+        // The review form's note field is optional; the real assertion is that
+        // the review lands in the store with its bathroom reference intact.
+        let postReview = firstButton(containing: ["Post review", "Post drop", "Submit"])
+        XCTAssertNotNil(postReview, "composer has no submit action in review mode")
+        postReview?.tap()
         usleep(2_500_000)
 
         // Every stored review must be attached to a bathroom.

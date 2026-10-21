@@ -117,6 +117,20 @@ struct FindScreen: View {
             .onAppear {
                 location.request()
                 if location.coordinate != nil { centerOnUser() }
+
+                // Deep-link for E2E tests: open a bathroom detail directly,
+                // avoiding the Find screen's MapKit map (large AX tree, slow
+                // XCUITest queries). Off by default; only activates when the
+                // launch argument is present.
+                if app.deepLinkBathroomID != nil {
+                    let id = app.deepLinkBathroomID!
+                    let special = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
+                    if id == special && !bathrooms.isEmpty {
+                        detailRoute = BathroomRoute(bathroom: bathrooms[0])
+                    } else if let target = bathrooms.first(where: { $0.id == id }) {
+                        detailRoute = BathroomRoute(bathroom: target)
+                    }
+                }
             }
             .onChange(of: location.coordinate?.latitude) { _, _ in
                 if !didCenter { centerOnUser() }

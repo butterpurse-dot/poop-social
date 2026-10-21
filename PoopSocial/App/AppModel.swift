@@ -82,6 +82,20 @@ final class AppModel {
     var openedProfileID: UUID?
     var openedPostID: UUID?
 
+    /// Deep link to a bathroom's detail sheet, set from a launch argument.
+    ///
+    /// Why this exists: the Find screen is dominated by a MapKit map, and
+    /// MapKit exposes a very large accessibility subtree. Any XCUITest query
+    /// rooted at the app must snapshot that whole tree, so even a simple
+    /// "tap the first bathroom card" query times out in the simulator --
+    /// a tooling artifact, not a product defect. Opening the destination
+    /// directly gives end-to-end tests a deterministic, fast path to the
+    /// bathroom detail screen without weakening the app for real users.
+    ///
+    /// `-openBathroom <uuid>` opens a specific bathroom; `-openFirstBathroom`
+    /// opens the newest one in the store.
+    var deepLinkBathroomID: UUID?
+
     private var toastTask: Task<Void, Never>?
 
     init() {
@@ -99,6 +113,13 @@ final class AppModel {
         if let i = args.firstIndex(of: "-startTab"), i + 1 < args.count,
            let requested = RootTab(rawValue: args[i + 1].lowercased()) {
             tab = requested
+        }
+
+        // End-to-end deterministic deep-link to a bathroom detail (off by default).
+        if args.contains("-openFirstBathroom") {
+            deepLinkBathroomID = UUID(uuidString: "00000000-0000-0000-0000-000000000001")
+        } else if let i = args.firstIndex(of: "-openBathroom"), i + 1 < args.count {
+            deepLinkBathroomID = UUID(uuidString: args[i + 1])
         }
     }
     func show(_ toast: Toast) {
