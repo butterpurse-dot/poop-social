@@ -413,12 +413,16 @@ can produce a binary App Store Connect will accept.
 This is the **App Store toolchain**, and the whole build-and-test job is green:
 
 ```
-Build & test (Xcode 26)  => success      (14m53s)
+Build & test (Xcode 26)  => success      (18m38s)
   Build                  => success
   Test                   => success      ** TEST SUCCEEDED **
     44 unit tests, 0 failures   (13 hasher + 15 moderator + 16 LLM router)
     15 UI tests,   0 failures
 ```
+
+The run above is [39526158769](https://github.com/butterpurse-dot/poop-social/actions/runs/39526158769)
+on commit `5f50eab`, which includes the simulator-boot fix described below. The
+first green run on this toolchain, before that fix, was 14m53s.
 
 | Check | Result |
 | --- | --- |
@@ -477,6 +481,27 @@ otherwise be rediscovered:
    unresolvable action produces the same zero-jobs rejection as (1). The
    `Node.js 20 is deprecated` warning from `@v4` is cosmetic; trading a warning
    for a hard failure was a bad deal.
+5. **Build success + Test failure on an unchanged app is infrastructure, not a
+   bug.** Two runs failed *after* a clean build, on a commit that only touched
+   this README, and the failing test was **different each time**:
+
+   ```
+   testComposerOffersNoImageInput   Failed to terminate com.poopsocial.app:5016
+   testOnboardingIsVisibleOnFirstRun
+       Timed out while launching application via Xcode
+   ```
+
+   Both are XCUITest losing a race with a cold simulator, and both tests passed
+   when the simulator happened to be warm. The Test step therefore boots the
+   simulator, opens `Simulator.app`, and polls `simctl spawn ... launchctl list`
+   until SpringBoard answers before handing over to `xcodebuild`. Reaching for a
+   code fix here would have been the wrong response — the app was never at fault.
+
+   The step also passes `-retry-tests-on-failure -test-iterations 2`. That is
+   deliberately narrower than retrying the job: a test that only passes on retry
+   is still *reported*, so a real regression cannot hide behind it. Worth noting
+   from the green run: the flags were armed (`Running tests repeatedly up to 2
+   times`) and **no test ever needed a retry** — the boot fix alone was enough.
 
 Two failure shapes look alike and must not be conflated:
 
@@ -484,6 +509,11 @@ Two failure shapes look alike and must not be conflated:
 | --- | --- | --- |
 | Rejected at validation | 0 jobs, no log, "workflow file issue" | GitHub's parser: the dispatch endpoint's error |
 | Ran and failed | a job, a log, check-run annotations | the job's log, `grep error:` |
+
+A third, subtler shape sits beside them: **a job that builds but fails in
+Test** on a commit that cannot have changed behaviour. Before touching code,
+check whether the failing test differs between attempts and whether it passes
+locally — if both are true, it is the runner.
 
 Earlier work on the same host also confirmed `swiftc -typecheck` and both
 `-Onone`/`-O` compiles across all app sources with **0 errors, 0 warnings**.
