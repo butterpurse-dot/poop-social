@@ -40,6 +40,18 @@ struct PoopSocialApp: App {
         }
 
         store = Store(context: container.mainContext)
+
+        // End-to-end tests need a *known* starting world so a persistence
+        // assertion cannot pass by accident against leftover state from a
+        // previous run. `-e2eFresh` wipes the graph and the seed flags, then
+        // reseeds -- giving every run the same starting point.
+        //
+        // Gated on the launch argument so a real user can never reach it: there
+        // is no gesture, button or deep link that sets it.
+        if ProcessInfo.processInfo.arguments.contains("-e2eFresh") {
+            Self.resetForE2E(context: container.mainContext)
+        }
+
         SeedData.seedIfNeeded(context: container.mainContext)
         // App Intents run outside the view hierarchy, so they cannot use
         // `@Environment`. Hand them the same container and store the UI uses —
@@ -63,6 +75,33 @@ struct PoopSocialApp: App {
         // the feed into an unreadable band. Resizable above this floor.
         .defaultSize(width: 430, height: 932)
         #endif
+    }
+
+    /// Wipe the persisted graph and the "already seeded / already onboarded"
+    /// flags, so an end-to-end run starts from the same world every time.
+    ///
+    /// Only reachable with `-e2eFresh`. Deletion is done per-model rather than
+    /// by throwing the store file away, because the container is already open
+    /// and moving its file underneath it is exactly the kind of thing that
+    /// produces a flaky test rather than a failing one.
+    @MainActor
+    private static func resetForE2E(context: ModelContext) {
+        // Delete leaves first: a Connection points at two Profiles, and the
+        // graph is tidier to unwind in dependency order.
+        try? context.delete(model: Reaction.self)
+        try? context.delete(model: Repost.self)
+        try? context.delete(model: Bookmark.self)
+        try? context.delete(model: Connection.self)
+        try? context.delete(model: Review.self)
+        try? context.delete(model: Post.self)
+        try? context.delete(model: Bathroom.self)
+        try? context.delete(model: Invite.self)
+        try? context.delete(model: Profile.self)
+        try? context.save()
+
+        let defaults = UserDefaults.standard
+        defaults.removeObject(forKey: "poopSocial.seeded.v1")
+        defaults.removeObject(forKey: "poopSocial.onboarded")
     }
 
     #if os(iOS)

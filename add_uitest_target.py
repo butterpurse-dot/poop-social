@@ -38,6 +38,20 @@ UNIT_BUNDLE_ID = "com.poopsocial.app.tests"
 # dependencies, so they compile cleanly into the test bundle.
 UNIT_SHARED_SOURCES = [
     ("PoopSocial/Models/ContentModerator.swift", "ContentModerator.swift"),
+    # Models.swift + Theme.swift are here for PostImagePolicyTests, which
+    # reflects over `Post` to prove the no-images policy holds at the type level
+    # rather than only in the view tree.
+    #
+    # This is the *only* place they can live: XCUITest runs out-of-process and
+    # has no `@testable import`, so a UI test bundle cannot name `Post` at all
+    # ("cannot find 'Post' in scope"). The unit bundle can, provided the app
+    # sources it needs are compiled in.
+    #
+    # Models.swift needs Theme.swift for `Color` values (Closeness.tint,
+    # Verdict.tint). Theme.swift is self-contained -- SwiftUI only, no other
+    # app-owned type -- so it does not drag in further sources.
+    ("PoopSocial/Models/Models.swift", "Models.swift"),
+    ("PoopSocial/Design/Theme.swift", "Theme.swift"),
     ("PoopSocial/Data/ContactHasher.swift", "ContactHasher.swift"),
     ("PoopSocial/Data/LLM.swift", "LLM.swift"),
     ("PoopSocial/Data/LLMRouter.swift", "LLMRouter.swift"),

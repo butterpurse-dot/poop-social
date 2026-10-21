@@ -52,5 +52,27 @@ struct RootView: View {
         .fullScreenPresentation(isPresented: $app.showOnboarding) {
             OnboardingScreen()
         }
+        // End-to-end state probe. Only constructed when the app is launched with
+        // `-e2eProbe`, so this is dead code in every real run. It exists because
+        // the UI tests can drive a write but had no way to verify the write
+        // *persisted* -- and a post that vanishes on relaunch is exactly the bug
+        // a smoke suite cannot see. See E2EStateProbe.swift.
+        //
+        // Attached with `.background`, NOT `.overlay`, and placed *behind* the
+        // tab content. An overlay -- even with `allowsHitTesting(false)` --
+        // still sat in front of the app for accessibility purposes, and the UI
+        // tests then failed with:
+        //
+        //   Failed to scroll to visible (by AX action) Button,
+        //   identifier: 'composeButton', error: kAXErrorCannotComplete
+        //
+        // The element existed and was tappable by a human; XCUITest simply could
+        // not reach it. Behind the content, the probe is still in the hierarchy
+        // (so its text is queryable) and cannot interfere with any tap.
+        .background {
+            if E2EStateProbe.isEnabled {
+                E2EStateProbe()
+            }
+        }
     }
 }
