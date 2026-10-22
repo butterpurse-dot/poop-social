@@ -126,6 +126,12 @@ final class AppModel {
         } else if let i = args.firstIndex(of: "-openBathroom"), i + 1 < args.count {
             deepLinkBathroomID = UUID(uuidString: args[i + 1])
         }
+        // The deep-link is handled by FindScreen, which only exists once the
+        // Find tab is selected. Without this the app would open on Home and
+        // the deep link would silently never fire.
+        if deepLinkBathroomID != nil {
+            tab = .find
+        }
     }
     func show(_ toast: Toast) {
         self.toast = toast
